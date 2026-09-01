@@ -1,0 +1,1029 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>현장 기록</title>
+<style>
+  /* ===== 큰 글씨 · 큰 버튼 (장갑 낀 손 기준) ===== */
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --line:#d5d8de; --ink:#1a1d22; --muted:#6b7280;
+    --brand:#1e5eff; --brand-ink:#fff; --ok:#12855b; --warn:#c0392b;
+    --pick:#e8efff; --pick-line:#1e5eff; --lock:#eceff3;
+    --tap:56px; /* 최소 터치 높이 */
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    font-size:19px; line-height:1.4}
+  body{padding-bottom:120px}
+  img{max-width:100%}
+  h1,h2,h3{margin:0}
+  button{font-family:inherit; font-size:19px; cursor:pointer}
+
+  /* 상단 바 */
+  .topbar{position:sticky; top:0; z-index:20; background:var(--brand); color:#fff;
+    padding:14px 16px; display:flex; align-items:center; justify-content:space-between}
+  .topbar .site{font-size:24px; font-weight:800}
+  .topbar .date{font-size:17px; opacity:.92}
+
+  .wrap{max-width:640px; margin:0 auto; padding:14px}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin:14px 0}
+  .card h2{font-size:21px; margin-bottom:12px}
+  .sub{color:var(--muted); font-size:16px}
+
+  /* 큰 버튼 공통 */
+  .btn{min-height:var(--tap); border:2px solid var(--line); background:#fff; color:var(--ink);
+    border-radius:14px; padding:10px 14px; font-weight:700}
+  .btn.block{display:block; width:100%}
+  .btn.primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn.big{min-height:76px; font-size:24px; border-radius:18px}
+  .btn.danger{color:var(--warn); border-color:#e8b6b0}
+  .btn:active{transform:translateY(1px)}
+
+  /* 선택형 토글 버튼 그리드 */
+  .chips{display:flex; flex-wrap:wrap; gap:10px}
+  .chip{min-height:var(--tap); padding:10px 16px; border-radius:999px;
+    border:2px solid var(--line); background:#fff; font-weight:700}
+  .chip.on{background:var(--pick); border-color:var(--pick-line); color:var(--brand)}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+
+  input,select{font-size:19px; min-height:var(--tap); padding:8px 10px;
+    border:2px solid var(--line); border-radius:12px; background:#fff; width:100%}
+  label.fld{display:block; margin:8px 0; font-size:15px; color:var(--muted)}
+  label.fld input, label.fld select{margin-top:4px}
+
+  .row-line{border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0; background:#fff}
+  .row-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px}
+  .row-head .tag{font-weight:800}
+
+  /* 사진 썸네일 */
+  .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px}
+  .thumb{position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:#e9ecf1; border:1px solid var(--line)}
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .thumb .kind{position:absolute; left:6px; bottom:6px; background:rgba(0,0,0,.62); color:#fff;
+    font-size:13px; padding:2px 8px; border-radius:8px}
+
+  .total{font-size:16px; color:var(--muted)}
+  .total b{display:block; font-size:30px; color:var(--ink)}
+
+  .tabbar{position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex;
+    background:#fff; border-top:1px solid var(--line)}
+  .tabbar button{flex:1; border:0; background:#fff; padding:14px 6px; font-weight:800; color:var(--muted)}
+  .tabbar button.on{color:var(--brand)}
+
+  .hidden{display:none !important}
+  .locked-note{background:#fff7e6; border:1px solid #ffd591; color:#8a5a00;
+    border-radius:12px; padding:10px 12px; margin:10px 0; font-size:16px}
+
+  /* 서명 모달 */
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center;
+    justify-content:center; z-index:50; padding:16px}
+  .modal .box{background:#fff; border-radius:18px; padding:18px; width:100%; max-width:560px}
+  .sigpad{width:100%; height:240px; border:2px dashed var(--line); border-radius:14px; touch-action:none; background:#fff}
+
+  /* 관리자 카드 */
+  .adcard{display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--line);
+    border-radius:16px; padding:16px; margin:12px 0}
+  .adcard .nm{font-size:23px; font-weight:800}
+  .adcard .meta{color:var(--muted); font-size:16px; margin-top:4px}
+  .badge{display:inline-block; padding:4px 12px; border-radius:999px; font-weight:800; font-size:15px}
+  .badge.signed{background:#e3f6ee; color:var(--ok)}
+  .badge.unsigned{background:#eef0f3; color:var(--muted)}
+
+  .toast{position:fixed; left:50%; bottom:150px; transform:translateX(-50%);
+    background:#1a1d22; color:#fff; padding:12px 18px; border-radius:12px; z-index:60; font-size:17px;
+    max-width:90%; text-align:center}
+  .gap{height:8px}
+</style>
+</head>
+<body>
+
+<!--
+  ============================================================================
+   건설 현장 기록 - 단일 파일 모바일 웹앱  (프로토타입)
+  ============================================================================
+   · 로그인 없음. URL이 곧 현장 구분자.
+        작업자용 :  index.html?site=A   (A/B/C/D/E)
+        관리자용 :  index.html?admin=<ADMIN_TOKEN>   (아래 CONFIG.adminToken)
+   · 데이터는 지금은 이 폰 안에만 저장(localStorage=텍스트, IndexedDB=사진).
+        저장/조회는 모두 Store.* 계층을 통해서만 한다.  나중에 서버로 옮길 때
+        Store 내부만 fetch 로 바꾸면 화면 코드는 손대지 않는다.
+  ============================================================================
+-->
+
+<script>
+/* =========================================================================
+   1) CONFIG  ── 나중에 실제 이름/금액으로 바꿀 값은 전부 여기 한 곳에만.
+                 코드 곳곳에 흩어놓지 않는다.
+   ========================================================================= */
+const CONFIG = {
+  sites:      ["A현장", "B현장", "C현장", "D현장", "E현장"],
+  companies:  ["A업체", "B업체", "C업체"],
+  unitPrices: [160000, 170000, 180000],          // 인력 단가 후보 (버튼)
+  manDays:    [1.0, 0.5, 1.5],                    // 공수 후보 (버튼)
+  weathers:   ["맑음", "흐림", "비", "눈"],
+  photoKinds: ["레미콘", "인력", "덤프", "기타"],  // 낮에 사진 찍기 전 고르는 종류
+  // 기본 공정 목록. 현장에서 '직접추가'한 공정은 Store 의 processTags 로 누적되어
+  // 이 목록과 합쳐져 다음부터 버튼으로 다시 나온다.
+  defaultProcesses: [
+    "측량/규준틀", "터파기", "잔토반출", "기초잡석", "하수관로부설",
+    "관접합/맨홀", "되메우기", "다짐", "거푸집", "철근조립",
+    "콘크리트타설", "석축/옹벽", "포장", "정리/청소", "우천대기"
+  ],
+
+  // ── 관리자 주소 토큰 ──────────────────────────────────────────────────
+  // ?admin=1 처럼 추측 가능한 값 대신, 길고 무작위한 문자열로 둔다.
+  // 관리자는  index.html?admin=아래문자열  로만 들어올 수 있다.
+  // 실제 운영 시 바꿔야 할 것:
+  //   1) 이 토큰을 새 무작위 값으로 교체하고, 관리자에게만 링크를 준다.
+  //   2) 그래도 이건 "주소를 아는 사람은 본다" 수준의 약한 보호일 뿐이다.
+  //      URL 은 브라우저 기록·카톡 대화·서버 로그에 남으므로 진짜 방어가 아니다.
+  //   3) 데이터를 서버로 옮기는 순간, 관리자 화면은 URL 토큰이 아니라
+  //      서버 측 로그인/세션(비밀번호·OTP 등)으로 보호해야 한다.
+  //      프런트 문자열 검사는 마음만 먹으면 우회되므로, 접근 통제는 서버에서 한다.
+  adminToken: "mgr-7Qk2f9Zx4Lp8Vn3 TsRc6Wm1Yd0Bh5Ej".replace(/\s/g,""),
+
+  // 사진 저장 규격
+  photoMaxW: 1200,   // 원본은 가로 1200px 로 줄여서 저장
+  thumbMaxW: 240,    // 목록용 썸네일은 별도로 작게 만들어서 저장
+};
+</script>
+
+<script>
+/* =========================================================================
+   2) Store  ── 데이터 접근 계층 (지금은 localStorage + IndexedDB).
+                화면 코드는 이 함수들만 호출한다.  서버 전환 시 여기 내부만 교체.
+   ========================================================================= */
+const Store = (() => {
+  const LS = window.localStorage;
+  const K = {
+    day:  (site, date) => `day:${site}:${date}`,       // 하루치 한 덩어리
+    vehicles: "vehicles",     // [{vehicleNo, company, driver}]
+    people:   "people",       // ["홍길동", ...]
+    procs:    "processTags",  // 직접추가한 공정 이름 ["...", ...]
+  };
+
+  function readJSON(key, fallback){
+    try{ const v = LS.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch(e){ return fallback; }
+  }
+  // 저장공간이 차면(QuotaExceededError) 화면에 알리고 그 저장만 막는다.
+  // 기존 데이터는 건드리지 않는다.
+  function writeJSON(key, val){
+    try{ LS.setItem(key, JSON.stringify(val)); return true; }
+    catch(e){
+      toast("저장 공간이 찼습니다. 관리자에게 문의하세요.");
+      console.error("localStorage quota:", e);
+      return false;
+    }
+  }
+
+  /* ---- 하루치 기록 (현장+날짜 = 한 덩어리) ---- */
+  function getDay(site, date){
+    return readJSON(K.day(site, date), null);
+  }
+  function saveDay(rec){
+    return writeJSON(K.day(rec.siteId, rec.date), rec);
+  }
+  function emptyDay(site, date){
+    return {
+      siteId: site, date: date,
+      weather: null,
+      processes: [],          // [{name, location}]
+      note: "",
+      entries: [],            // 인력/장비/자재 통합 항목 (아래 데이터 구조 주석 참고)
+      photoIds: [],           // 낮에 찍은 현장 사진 id
+      signature: null,        // {dataUrl, signedAt, locked:true}
+    };
+  }
+  // 한 현장의 날짜 목록(최신순). localStorage 키를 훑어서 만든다.
+  function listDays(site){
+    const pre = `day:${site}:`;
+    const out = [];
+    for(let i=0;i<LS.length;i++){
+      const k = LS.key(i);
+      if(k && k.startsWith(pre)) out.push(k.slice(pre.length));
+    }
+    return out.sort().reverse();
+  }
+  // 관리자 카드용: 각 현장의 '오늘' 요약
+  function siteSummaryForDate(site, date){
+    const d = getDay(site, date);
+    if(!d) return { site, exists:false };
+    const labor = d.entries.filter(e => e.kind === "labor");
+    const equip = d.entries.filter(e => e.kind === "equipment");
+    const total = labor.reduce((s,e)=> s + (Number(e.amount)||0), 0);
+    return {
+      site, exists:true,
+      processes: d.processes.map(p=>p.name),
+      laborCount: labor.length,
+      equipCount: equip.length,
+      total,
+      signed: !!(d.signature && d.signature.locked),
+    };
+  }
+
+  /* ---- 재사용 마스터 목록 ---- */
+  function getVehicles(){ return readJSON(K.vehicles, []); }
+  // 차량번호로 업체·기사를 연결해 쌓는다. 같은 번호면 최신 정보로 갱신.
+  function upsertVehicle(vehicleNo, company, driver){
+    vehicleNo = (vehicleNo||"").trim();
+    if(!vehicleNo) return;
+    const list = getVehicles();
+    const i = list.findIndex(v => v.vehicleNo === vehicleNo);
+    const rec = { vehicleNo, company: company||"", driver: driver||"" };
+    if(i>=0){ // 빈 값으로 기존 정보를 지우지 않도록 병합
+      rec.company = company || list[i].company || "";
+      rec.driver  = driver  || list[i].driver  || "";
+      list[i] = rec;
+    } else list.push(rec);
+    writeJSON(K.vehicles, list);
+  }
+  function findVehicle(vehicleNo){
+    return getVehicles().find(v => v.vehicleNo === (vehicleNo||"").trim()) || null;
+  }
+
+  function getPeople(){ return readJSON(K.people, []); }
+  function addPerson(name){
+    name = (name||"").trim(); if(!name) return;
+    const list = getPeople();
+    if(!list.includes(name)){ list.push(name); writeJSON(K.people, list); }
+  }
+
+  // 공정: 기본 목록 + 직접추가분 (중복 제거, 기본 순서 우선)
+  function getProcessTags(){
+    const extra = readJSON(K.procs, []);
+    const all = [...CONFIG.defaultProcesses];
+    extra.forEach(p => { if(!all.includes(p)) all.push(p); });
+    return all;
+  }
+  function addProcessTag(name){
+    name = (name||"").trim(); if(!name) return;
+    if(CONFIG.defaultProcesses.includes(name)) return;
+    const extra = readJSON(K.procs, []);
+    if(!extra.includes(name)){ extra.push(name); writeJSON(K.procs, extra); }
+  }
+
+  /* ---- 사진 (IndexedDB) : 원본(1200px) + 썸네일(240px) 따로 저장 ---- */
+  let dbP = null;
+  function db(){
+    if(dbP) return dbP;
+    dbP = new Promise((res, rej) => {
+      const r = indexedDB.open("site-photos", 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if(!d.objectStoreNames.contains("photos"))
+          d.createObjectStore("photos", { keyPath:"id" });
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    });
+    return dbP;
+  }
+  function tx(mode){ return db().then(d => d.transaction("photos", mode).objectStore("photos")); }
+
+  // record: {id, kind, time, full(Blob), thumb(Blob)}
+  async function savePhoto(rec){
+    try{
+      const store = await tx("readwrite");
+      await new Promise((res, rej) => {
+        const q = store.put(rec); q.onsuccess = res; q.onerror = () => rej(q.error);
+      });
+      return true;
+    }catch(e){
+      // IndexedDB 용량이 차도 기록 본문·다른 사진은 유지되도록 그 사진만 건너뛴다.
+      toast("사진 저장 공간이 부족합니다. 이 사진은 저장되지 않았습니다.");
+      console.error("IndexedDB quota:", e);
+      return false;
+    }
+  }
+  async function getPhoto(id){
+    const store = await tx("readonly");
+    return new Promise((res, rej) => {
+      const q = store.get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error);
+    });
+  }
+  // 썸네일 blob → object URL (목록용). 원본이 아니라 작은 썸네일을 그린다.
+  async function thumbURL(id){
+    const p = await getPhoto(id);
+    return p && p.thumb ? URL.createObjectURL(p.thumb) : null;
+  }
+  async function fullURL(id){
+    const p = await getPhoto(id);
+    return p && p.full ? URL.createObjectURL(p.full) : null;
+  }
+
+  return {
+    getDay, saveDay, emptyDay, listDays, siteSummaryForDate,
+    getVehicles, upsertVehicle, findVehicle,
+    getPeople, addPerson,
+    getProcessTags, addProcessTag,
+    savePhoto, getPhoto, thumbURL, fullURL,
+  };
+})();
+</script>
+
+<script>
+/* =========================================================================
+   3) 사진 유틸  ── 리사이즈(원본 1200px) + 썸네일(240px) 을 각각 만든다.
+      사진 '종류' 분류는 classifyPhoto 한 곳으로 떼어놓았다.
+      지금은 사람이 버튼으로 고른 값을 그대로 쓰고, 나중에 자동분류로 바꿀 때
+      이 함수 내부만 교체하면 된다.
+   ========================================================================= */
+function classifyPhoto(blob, manualKind){
+  // TODO(미래): 여기서 이미지 자동 분류 모델을 호출해 종류를 추론.
+  return manualKind;
+}
+
+// File → 지정 최대폭으로 축소한 JPEG Blob
+function resizeToBlob(imgEl, maxW, quality){
+  const scale = Math.min(1, maxW / imgEl.naturalWidth);
+  const w = Math.round(imgEl.naturalWidth  * scale);
+  const h = Math.round(imgEl.naturalHeight * scale);
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  c.getContext("2d").drawImage(imgEl, 0, 0, w, h);
+  return new Promise(res => c.toBlob(res, "image/jpeg", quality));
+}
+
+// File → {full, thumb} 두 개의 Blob
+function makePhotoBlobs(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = async () => {
+      try{
+        const full  = await resizeToBlob(img, CONFIG.photoMaxW, 0.82);
+        const thumb = await resizeToBlob(img, CONFIG.thumbMaxW, 0.7);
+        URL.revokeObjectURL(url);
+        res({ full, thumb });
+      }catch(e){ rej(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("이미지 로드 실패")); };
+    img.src = url;
+  });
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+</script>
+
+<script>
+/* =========================================================================
+   4) 공통 유틸 / 라우팅
+   ========================================================================= */
+function todayStr(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function prettyDate(s){
+  const [y,m,d] = s.split("-").map(Number);
+  const wd = ["일","월","화","수","목","금","토"][new Date(y,m-1,d).getDay()];
+  return `${m}/${d} (${wd})`;
+}
+function won(n){ return (Number(n)||0).toLocaleString("ko-KR") + "원"; }
+function man(n){ return (n/10000) + "만"; }
+
+let _toastT = null;
+function toast(msg){
+  let t = document.querySelector(".toast");
+  if(!t){ t = document.createElement("div"); t.className="toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.style.display="block";
+  clearTimeout(_toastT); _toastT = setTimeout(()=> t.style.display="none", 2600);
+}
+
+function getParams(){ return new URLSearchParams(location.search); }
+</script>
+
+<div id="app"></div>
+
+<script>
+/* =========================================================================
+   5) 화면
+   ========================================================================= */
+const app = document.getElementById("app");
+const P = getParams();
+
+// ---- 라우팅: 관리자 토큰 / 현장 / (기본) 현장 선택 안내 ----
+function boot(){
+  const admin = P.get("admin");
+  if(admin != null){
+    if(admin === CONFIG.adminToken) return renderAdmin();
+    app.innerHTML = `<div class="wrap"><div class="card"><h2>접근할 수 없습니다</h2>
+      <p class="sub">올바른 관리자 링크가 아닙니다.</p></div></div>`;
+    return;
+  }
+  const site = P.get("site");
+  if(site && CONFIG.sites.includes(site)) return renderWorker(site);
+
+  // 현장 파라미터가 없거나 잘못된 경우: 테스트용 현장 선택 화면
+  app.innerHTML = `<div class="topbar"><div class="site">현장 기록</div></div>
+    <div class="wrap"><div class="card"><h2>현장을 선택하세요</h2>
+    <p class="sub">실제로는 카톡으로 받은 현장별 링크로 바로 들어옵니다. (테스트용 선택 화면)</p>
+    <div class="gap"></div>
+    ${CONFIG.sites.map(s=>`<a class="btn block primary" style="margin:8px 0;text-decoration:none;text-align:center"
+        href="?site=${encodeURIComponent(s)}">${s}</a>`).join("")}
+    </div></div>`;
+}
+
+/* ---------------------------------------------------------------------------
+   작업자 화면 (낮 탭 / 저녁 탭)
+   --------------------------------------------------------------------------- */
+function renderWorker(site){
+  const date = todayStr();
+  let rec = Store.getDay(site, date) || Store.emptyDay(site, date);
+  let tab = "day"; // day | evening
+
+  function persist(){ Store.saveDay(rec); }
+  function isLocked(){ return !!(rec.signature && rec.signature.locked); }
+
+  function shell(){
+    app.innerHTML = `
+      <div class="topbar">
+        <div><div class="site">${site}</div></div>
+        <div class="date">${prettyDate(date)}</div>
+      </div>
+      <div id="screen"></div>
+      <div class="tabbar">
+        <button id="tabDay">📷 사진</button>
+        <button id="tabEve">📝 저녁 정리</button>
+      </div>`;
+    document.getElementById("tabDay").onclick = ()=>{ tab="day"; draw(); };
+    document.getElementById("tabEve").onclick = ()=>{ tab="evening"; draw(); };
+  }
+
+  function draw(){
+    document.getElementById("tabDay").className = tab==="day" ? "on":"";
+    document.getElementById("tabEve").className = tab==="evening" ? "on":"";
+    if(tab==="day") drawDay(); else drawEvening();
+  }
+
+  /* ===== 낮 화면 ===== */
+  function drawDay(){
+    let kind = CONFIG.photoKinds[0];
+    const scr = document.getElementById("screen");
+    scr.innerHTML = `
+      <div class="wrap">
+        <div class="card">
+          <h2>사진 종류</h2>
+          <div class="chips" id="kinds">
+            ${CONFIG.photoKinds.map((k,i)=>`<button class="chip ${i===0?'on':''}" data-k="${k}">${k}</button>`).join("")}
+          </div>
+          <div class="gap"></div>
+          <label class="btn primary big block" style="text-align:center;line-height:1.2">
+            📷 사진 찍기
+            <input type="file" accept="image/*" capture="environment" id="cam" class="hidden">
+          </label>
+          <p class="sub" style="text-align:center;margin-top:8px">찍으면 바로 저장됩니다</p>
+        </div>
+        <div class="card">
+          <h2>오늘 찍은 사진 <span class="sub" id="pcount"></span></h2>
+          <div class="thumbs" id="thumbs"></div>
+        </div>
+      </div>`;
+
+    scr.querySelectorAll("#kinds .chip").forEach(b=>{
+      b.onclick = ()=>{
+        scr.querySelectorAll("#kinds .chip").forEach(x=>x.classList.remove("on"));
+        b.classList.add("on"); kind = b.dataset.k;
+      };
+    });
+
+    const cam = document.getElementById("cam");
+    cam.onchange = async () => {
+      const file = cam.files && cam.files[0];
+      cam.value = "";
+      if(!file) return;
+      toast("저장 중…");
+      try{
+        const { full, thumb } = await makePhotoBlobs(file);
+        const id = uid();
+        const finalKind = classifyPhoto(full, kind);
+        const ok = await Store.savePhoto({ id, kind: finalKind, time: Date.now(), full, thumb });
+        if(ok){
+          rec.photoIds.unshift(id);   // 최신이 앞으로
+          persist();
+          renderThumbs();
+          toast("저장됨");
+        }
+      }catch(e){ console.error(e); toast("사진 처리 실패"); }
+    };
+
+    renderThumbs();
+
+    async function renderThumbs(){
+      document.getElementById("pcount").textContent = `(${rec.photoIds.length}장)`;
+      const box = document.getElementById("thumbs");
+      box.innerHTML = "";
+      for(const id of rec.photoIds){
+        const cell = document.createElement("div");
+        cell.className = "thumb";
+        box.appendChild(cell);
+        const p = await Store.getPhoto(id);
+        if(p && p.thumb){
+          const url = URL.createObjectURL(p.thumb);
+          cell.innerHTML = `<img src="${url}" alt=""><span class="kind">${p.kind||""}</span>`;
+        }
+      }
+    }
+  }
+
+  /* ===== 저녁 화면 ===== */
+  function drawEvening(){
+    const scr = document.getElementById("screen");
+    scr.innerHTML = `<div class="wrap" id="eve"></div>`;
+    const eve = document.getElementById("eve");
+
+    if(isLocked()){
+      eve.innerHTML = `<div class="locked-note">✅ ${rec.signature.signedAt} 에 서명되어 잠겼습니다.
+        수정하려면 아래 <b>수정하기</b>를 누르세요. 저장하려면 다시 서명해야 합니다.</div>
+        <button class="btn block" id="unlock">🔓 수정하기</button>
+        <div id="body"></div>`;
+      document.getElementById("unlock").onclick = ()=>{
+        rec.signature = null; persist(); drawEvening();
+      };
+    } else {
+      eve.innerHTML = `<div id="body"></div>`;
+    }
+    const body = document.getElementById("body");
+    const ro = isLocked(); // read-only
+    body.innerHTML = `
+      ${sectionProcess(ro)}
+      ${sectionLabor(ro)}
+      ${sectionEquip(ro)}
+      ${sectionSign(ro)}`;
+
+    wireProcess(body, ro);
+    wireLabor(body, ro);
+    wireEquip(body, ro);
+    wireSign(body, ro);
+  }
+
+  /* ----- 0) 오늘 공정 ----- */
+  function sectionProcess(ro){
+    const tags = Store.getProcessTags();
+    return `<div class="card">
+      <h2>오늘 공정 <span class="sub">${prettyDate(date)}</span></h2>
+      <div class="sub">날씨</div>
+      <div class="chips" id="weather">
+        ${CONFIG.weathers.map(w=>`<button class="chip ${rec.weather===w?'on':''}" data-w="${w}" ${ro?'disabled':''}>${w}</button>`).join("")}
+      </div>
+      <div class="gap"></div>
+      <div class="sub">공정 (여러 개 선택)</div>
+      <div class="chips" id="procs">
+        ${tags.map(t=>{
+          const on = rec.processes.some(p=>p.name===t);
+          return `<button class="chip ${on?'on':''}" data-p="${t}" ${ro?'disabled':''}>${t}</button>`;
+        }).join("")}
+        ${ro?'':`<button class="chip" id="addProc">+ 직접추가</button>`}
+      </div>
+      <div id="locs"></div>
+      <label class="fld">특이사항 (비워도 됨)
+        <input id="note" value="${(rec.note||'').replace(/"/g,'&quot;')}" ${ro?'disabled':''} placeholder="예: 오후 우천으로 조기 마감">
+      </label>
+    </div>`;
+  }
+  function wireProcess(root, ro){
+    if(ro) { renderLocs(); return; }
+    root.querySelectorAll("#weather .chip").forEach(b=>{
+      b.onclick=()=>{ rec.weather=b.dataset.w; persist();
+        root.querySelectorAll("#weather .chip").forEach(x=>x.classList.remove("on")); b.classList.add("on"); };
+    });
+    root.querySelectorAll("#procs .chip[data-p]").forEach(b=>{
+      b.onclick=()=>{
+        const name=b.dataset.p;
+        const i=rec.processes.findIndex(p=>p.name===name);
+        if(i>=0){ rec.processes.splice(i,1); b.classList.remove("on"); }
+        else{ rec.processes.push({name, location:""}); b.classList.add("on"); }
+        persist(); renderLocs();
+      };
+    });
+    const addBtn = root.querySelector("#addProc");
+    if(addBtn) addBtn.onclick = ()=>{
+      const name = prompt("추가할 공정 이름을 입력하세요");
+      if(!name) return;
+      const nm = name.trim(); if(!nm) return;
+      Store.addProcessTag(nm);
+      if(!rec.processes.some(p=>p.name===nm)) rec.processes.push({name:nm, location:""});
+      persist(); drawEvening();
+    };
+    root.querySelector("#note").oninput = e => { rec.note = e.target.value; persist(); };
+    renderLocs();
+
+    function renderLocs(){
+      const box = root.querySelector("#locs");
+      if(rec.processes.length===0){ box.innerHTML=""; return; }
+      box.innerHTML = rec.processes.map((p,i)=>`
+        <label class="fld">☑ ${p.name} — 위치/구간
+          <input data-i="${i}" value="${(p.location||'').replace(/"/g,'&quot;')}" ${ro?'disabled':''} placeholder="예: 3구간, 도로 북측">
+        </label>`).join("");
+      if(!ro) box.querySelectorAll("input").forEach(inp=>{
+        inp.oninput = e => { rec.processes[+inp.dataset.i].location = e.target.value; persist(); };
+      });
+    }
+  }
+
+  /* ----- 1) 인력 ----- */
+  function sectionLabor(ro){
+    return `<div class="card">
+      <h2>인력</h2>
+      <div id="laborList"></div>
+      ${ro?'':`<button class="btn block" id="addLabor">+ 인력 추가</button>`}
+      <div class="gap"></div>
+      <div class="total">오늘 인력 합계 <b id="laborTotal"></b></div>
+    </div>`;
+  }
+  function wireLabor(root, ro){
+    const list = root.querySelector("#laborList");
+    const people = Store.getPeople();
+    const dl = `<datalist id="peopleDL">${people.map(n=>`<option value="${n}">`).join("")}</datalist>`;
+
+    function render(){
+      const rows = rec.entries.filter(e=>e.kind==="labor");
+      list.innerHTML = dl + rows.map(e=>laborRow(e, ro)).join("");
+      if(!ro) rows.forEach(e=> wireLaborRow(list, e));
+      updateTotal();
+    }
+    function updateTotal(){
+      const t = rec.entries.filter(e=>e.kind==="labor").reduce((s,e)=>s+(Number(e.amount)||0),0);
+      root.querySelector("#laborTotal").textContent = won(t);
+    }
+    function recalc(e){
+      // 금액 = 단가 × 공수 (사용자가 직접 고치기 전까지 자동)
+      if(!e._manual) e.amount = Math.round((Number(e.unitPrice)||0) * (Number(e.manDay)||0));
+    }
+
+    root._laborRender = render;
+    if(!ro){
+      const add = root.querySelector("#addLabor");
+      add.onclick = ()=>{
+        rec.entries.push({ id:uid(), kind:"labor", name:"",
+          unitPrice:CONFIG.unitPrices[0], manDay:CONFIG.manDays[0],
+          amount: Math.round(CONFIG.unitPrices[0]*CONFIG.manDays[0]), _manual:false });
+        persist(); render();
+      };
+    }
+    render();
+
+    function wireLaborRow(scope, e){
+      const row = scope.querySelector(`[data-row="${e.id}"]`);
+      const nm = row.querySelector(".nm");
+      nm.oninput = ()=>{ e.name = nm.value; persist(); };
+      nm.onblur  = ()=>{ if(e.name.trim()){ Store.addPerson(e.name); } };
+      row.querySelectorAll("[data-up]").forEach(b=> b.onclick=()=>{
+        e.unitPrice = +b.dataset.up; e._manual=false; recalc(e); persist();
+        row.querySelectorAll("[data-up]").forEach(x=>x.classList.toggle("on", +x.dataset.up===e.unitPrice));
+        row.querySelector(".amt").value = e.amount; updateTotal();
+      });
+      row.querySelectorAll("[data-md]").forEach(b=> b.onclick=()=>{
+        e.manDay = +b.dataset.md; e._manual=false; recalc(e); persist();
+        row.querySelectorAll("[data-md]").forEach(x=>x.classList.toggle("on", +x.dataset.md===e.manDay));
+        row.querySelector(".amt").value = e.amount; updateTotal();
+      });
+      const amt = row.querySelector(".amt");
+      amt.oninput = ()=>{ e.amount = +amt.value.replace(/[^\d]/g,"")||0; e._manual=true; persist(); updateTotal(); };
+      row.querySelector(".del").onclick = ()=>{
+        const i = rec.entries.findIndex(x=>x.id===e.id);
+        if(i>=0) rec.entries.splice(i,1); persist(); render();
+      };
+    }
+  }
+  function laborRow(e, ro){
+    return `<div class="row-line" data-row="${e.id}">
+      <label class="fld">이름
+        <input class="nm" list="peopleDL" value="${(e.name||'').replace(/"/g,'&quot;')}" ${ro?'disabled':''} placeholder="이름">
+      </label>
+      <div class="sub">단가</div>
+      <div class="chips">
+        ${CONFIG.unitPrices.map(u=>`<button class="chip ${e.unitPrice===u?'on':''}" data-up="${u}" ${ro?'disabled':''}>${man(u)}</button>`).join("")}
+      </div>
+      <div class="gap"></div>
+      <div class="sub">공수</div>
+      <div class="chips">
+        ${CONFIG.manDays.map(m=>`<button class="chip ${e.manDay===m?'on':''}" data-md="${m}" ${ro?'disabled':''}>${m.toFixed(1)}</button>`).join("")}
+      </div>
+      <label class="fld">금액 (단가×공수 자동, 직접 수정 가능)
+        <input class="amt" inputmode="numeric" value="${e.amount||0}" ${ro?'disabled':''}>
+      </label>
+      ${ro?'':`<button class="btn danger del">삭제</button>`}
+    </div>`;
+  }
+
+  /* ----- 2) 반입 기록 (금액 없음) ----- */
+  function sectionEquip(ro){
+    return `<div class="card">
+      <h2>반입 기록 <span class="sub">(금액 없음)</span></h2>
+      ${ro?'':`<div class="sub">추가</div>
+      <div class="grid4" id="addEquip">
+        <button class="btn" data-t="레미콘">레미콘</button>
+        <button class="btn" data-t="덤프">덤프</button>
+        <button class="btn" data-t="포크레인">포크레인</button>
+        <button class="btn" data-t="기타">기타</button>
+      </div>`}
+      <div id="equipList"></div>
+    </div>`;
+  }
+  function wireEquip(root, ro){
+    const list = root.querySelector("#equipList");
+    function render(){
+      const rows = rec.entries.filter(e=>e.kind==="equipment");
+      list.innerHTML = rows.map(e=>equipRow(e, ro)).join("");
+      if(!ro) rows.forEach(e=> wireEquipRow(list, e));
+    }
+    root._equipRender = render;
+    if(!ro){
+      root.querySelectorAll("#addEquip .btn").forEach(b=> b.onclick=()=>{
+        rec.entries.push({ id:uid(), kind:"equipment", type:b.dataset.t,
+          company:"", vehicleNo:"", driver:"", count:"", pourLocation:"",
+          direction:"반입", timeslot:"", memo:"", photoId:null });
+        persist(); render();
+      });
+    }
+    render();
+
+    function wireEquipRow(scope, e){
+      const row = scope.querySelector(`[data-erow="${e.id}"]`);
+      // 차량번호 입력/선택 → 그 차의 업체·기사 자동 채움
+      const vno = row.querySelector(".vno");
+      if(vno){
+        const fill = ()=>{
+          e.vehicleNo = vno.value;
+          const hit = Store.findVehicle(vno.value);
+          if(hit){
+            if(row.querySelector(".company") && hit.company){ e.company=hit.company; row.querySelector(".company").value=hit.company; }
+            if(row.querySelector(".driver")  && hit.driver ){ e.driver =hit.driver;  row.querySelector(".driver").value =hit.driver;  }
+          }
+          persist();
+        };
+        vno.oninput = fill; vno.onchange = fill;
+      }
+      row.querySelectorAll("[data-f]").forEach(inp=>{
+        inp.oninput = ()=>{ e[inp.dataset.f] = inp.value; persist(); };
+      });
+      row.querySelectorAll("[data-dir]").forEach(b=> b.onclick=()=>{
+        e.direction=b.dataset.dir; persist();
+        row.querySelectorAll("[data-dir]").forEach(x=>x.classList.toggle("on", x.dataset.dir===e.direction));
+      });
+      // 번호판 사진 첨부 (그 줄에 바로)
+      const cam = row.querySelector(".ecam");
+      if(cam) cam.onchange = async ()=>{
+        const file = cam.files && cam.files[0]; cam.value="";
+        if(!file) return;
+        toast("사진 저장 중…");
+        try{
+          const { full, thumb } = await makePhotoBlobs(file);
+          const id = uid();
+          const ok = await Store.savePhoto({ id, kind:"번호판", time:Date.now(), full, thumb });
+          if(ok){ e.photoId=id; persist(); render(); }
+        }catch(err){ console.error(err); toast("사진 처리 실패"); }
+      };
+      const del = row.querySelector(".edel");
+      if(del) del.onclick=()=>{
+        const i=rec.entries.findIndex(x=>x.id===e.id);
+        if(i>=0) rec.entries.splice(i,1); persist(); render();
+      };
+      // 저장/갱신 시 차량 마스터에 반영 (blur에서)
+      row.querySelectorAll("input,select").forEach(el=> el.addEventListener("blur", ()=>{
+        if(e.vehicleNo && e.vehicleNo.trim()) Store.upsertVehicle(e.vehicleNo, e.company, e.driver);
+      }));
+      // 번호판 썸네일 표시
+      const ph = row.querySelector(".ephoto");
+      if(ph && e.photoId){
+        Store.thumbURL(e.photoId).then(u=>{ if(u) ph.innerHTML=`<img src="${u}" style="max-height:90px;border-radius:8px">`; });
+      }
+    }
+  }
+  function equipRow(e, ro){
+    const vehicles = Store.getVehicles();
+    const dl = `<datalist id="vehDL">${vehicles.map(v=>`<option value="${v.vehicleNo}">`).join("")}</datalist>`;
+    const d = ro?'disabled':'';
+    // 차량번호 + 사진은 모든 종류 공통. 종류별 추가 필드만 다르게.
+    let extra = "";
+    if(e.type==="레미콘"){
+      extra = `${companySel(e,ro)}
+        <label class="fld">몇 대<input data-f="count" inputmode="numeric" value="${e.count||''}" ${d}></label>
+        <label class="fld">어디 타설<input data-f="pourLocation" value="${(e.pourLocation||'').replace(/"/g,'&quot;')}" ${d} placeholder="예: 3구간"></label>`;
+    } else if(e.type==="덤프"){
+      extra = `${companySel(e,ro)}
+        <label class="fld">몇 회<input data-f="count" inputmode="numeric" value="${e.count||''}" ${d}></label>
+        <div class="sub">구분</div>
+        <div class="chips">
+          <button class="chip ${e.direction==='반출'?'on':''}" data-dir="반출" ${d}>반출</button>
+          <button class="chip ${e.direction==='반입'?'on':''}" data-dir="반입" ${d}>반입</button>
+        </div>`;
+    } else if(e.type==="포크레인"){
+      extra = `<label class="fld">기사 이름<input class="driver" data-f="driver" value="${(e.driver||'').replace(/"/g,'&quot;')}" ${d}></label>
+        <label class="fld">시간대<input data-f="timeslot" value="${(e.timeslot||'').replace(/"/g,'&quot;')}" ${d} placeholder="예: 09~12시"></label>`;
+    } else {
+      extra = `<label class="fld">내용<input data-f="memo" value="${(e.memo||'').replace(/"/g,'&quot;')}" ${d} placeholder="자유 입력"></label>`;
+    }
+    return `<div class="row-line" data-erow="${e.id}">
+      ${dl}
+      <div class="row-head"><span class="tag">${e.type}</span>${ro?'':`<button class="btn danger edel">삭제</button>`}</div>
+      <label class="fld">차량번호 (필수 아님)
+        <input class="vno" list="vehDL" value="${(e.vehicleNo||'').replace(/"/g,'&quot;')}" ${d} placeholder="비워둬도 저장됩니다">
+      </label>
+      ${extra}
+      ${ro?'':`<label class="btn block" style="text-align:center">📷 번호판 사진
+        <input type="file" accept="image/*" capture="environment" class="ecam hidden"></label>`}
+      <div class="ephoto"></div>
+    </div>`;
+  }
+  function companySel(e, ro){
+    return `<label class="fld">업체
+      <select class="company" data-f="company" ${ro?'disabled':''}>
+        <option value="">선택</option>
+        ${CONFIG.companies.map(c=>`<option value="${c}" ${e.company===c?'selected':''}>${c}</option>`).join("")}
+      </select></label>`;
+  }
+
+  /* ----- 3) 사인 ----- */
+  function sectionSign(ro){
+    if(ro){
+      return `<div class="card"><h2>사인</h2>
+        <div class="locked-note">서명 완료 · ${rec.signature.signedAt}</div>
+        <img src="${rec.signature.dataUrl}" style="max-height:160px;border:1px solid var(--line);border-radius:12px;background:#fff">
+      </div>`;
+    }
+    return `<div class="card"><h2>사인</h2>
+      <p class="sub">서명하면 오늘 기록(공정·사진·인력·반입)이 통째로 잠깁니다.</p>
+      <button class="btn primary block big" id="signBtn">✍ 사인하기</button>
+    </div>`;
+  }
+  function wireSign(root, ro){
+    if(ro) return;
+    root.querySelector("#signBtn").onclick = ()=>{
+      // 공정 하나도 안 골랐으면 진행 차단
+      if(rec.processes.length===0){ toast("공정을 먼저 하나 이상 고르세요."); return; }
+      // 사인 직전 확인
+      askEquipThenSign();
+    };
+  }
+
+  function askEquipThenSign(){
+    const m = document.createElement("div");
+    m.className="modal";
+    m.innerHTML = `<div class="box">
+      <h2>오늘 들어온 장비·자재 있습니까?</h2>
+      <div class="gap"></div>
+      <div class="grid2">
+        <button class="btn" id="mAdd">추가</button>
+        <button class="btn primary" id="mNone">없음</button>
+      </div></div>`;
+    document.body.appendChild(m);
+    m.querySelector("#mAdd").onclick = ()=>{ m.remove(); tab="evening"; draw();
+      toast("반입 기록에 추가하세요."); document.querySelector("#equipList")?.scrollIntoView({behavior:"smooth"}); };
+    m.querySelector("#mNone").onclick = ()=>{ m.remove(); openSignPad(); };
+  }
+
+  function openSignPad(){
+    const m = document.createElement("div");
+    m.className="modal";
+    m.innerHTML = `<div class="box">
+      <h2>손가락으로 서명</h2>
+      <canvas class="sigpad" id="pad"></canvas>
+      <div class="gap"></div>
+      <div class="grid2">
+        <button class="btn" id="clear">지우기</button>
+        <button class="btn primary" id="done">서명 완료</button>
+      </div>
+      <div class="gap"></div>
+      <button class="btn block" id="cancel">취소</button>
+    </div>`;
+    document.body.appendChild(m);
+
+    const cv = m.querySelector("#pad");
+    const rect = cv.getBoundingClientRect();
+    cv.width = rect.width; cv.height = rect.height;
+    const ctx = cv.getContext("2d");
+    ctx.lineWidth=3; ctx.lineCap="round"; ctx.strokeStyle="#111";
+    let drawing=false, dirty=false;
+    const pos = ev => { const r=cv.getBoundingClientRect(); const t=ev.touches?ev.touches[0]:ev;
+      return { x:t.clientX-r.left, y:t.clientY-r.top }; };
+    const start = ev=>{ drawing=true; dirty=true; const p=pos(ev); ctx.beginPath(); ctx.moveTo(p.x,p.y); ev.preventDefault(); };
+    const move  = ev=>{ if(!drawing)return; const p=pos(ev); ctx.lineTo(p.x,p.y); ctx.stroke(); ev.preventDefault(); };
+    const end   = ()=> drawing=false;
+    cv.addEventListener("mousedown",start); cv.addEventListener("mousemove",move); window.addEventListener("mouseup",end);
+    cv.addEventListener("touchstart",start,{passive:false}); cv.addEventListener("touchmove",move,{passive:false}); cv.addEventListener("touchend",end);
+
+    m.querySelector("#clear").onclick = ()=>{ ctx.clearRect(0,0,cv.width,cv.height); dirty=false; };
+    m.querySelector("#cancel").onclick = ()=> m.remove();
+    m.querySelector("#done").onclick = ()=>{
+      if(!dirty){ toast("서명을 해주세요."); return; }
+      rec.signature = { dataUrl: cv.toDataURL("image/png"),
+        signedAt: `${prettyDate(date)} ${new Date().toTimeString().slice(0,5)}`, locked:true };
+      persist(); m.remove(); drawEvening();
+      toast("서명 완료 · 잠김");
+    };
+  }
+
+  shell(); draw();
+}
+
+/* ---------------------------------------------------------------------------
+   관리자 화면
+   --------------------------------------------------------------------------- */
+function renderAdmin(){
+  const date = todayStr();
+  app.innerHTML = `
+    <div class="topbar"><div class="site">관리자</div><div class="date">${prettyDate(date)}</div></div>
+    <div class="wrap" id="ad"></div>`;
+  const ad = document.getElementById("ad");
+  ad.innerHTML = CONFIG.sites.map(s=>{
+    const x = Store.siteSummaryForDate(s, date);
+    const procs = x.exists && x.processes.length ? x.processes.join(", ") : "—";
+    const badge = x.signed
+      ? `<span class="badge signed">✅ 사인됨</span>`
+      : `<span class="badge unsigned">⬜ 미사인</span>`;
+    return `<button class="adcard" data-site="${s}">
+      <div class="nm">${s} ${badge}</div>
+      <div class="meta">오늘 공정: ${procs}</div>
+      <div class="meta">인력 ${x.exists?x.laborCount:0}명 · 장비 ${x.exists?x.equipCount:0}대 · 합계 ${won(x.exists?x.total:0)}</div>
+    </button>`;
+  }).join("");
+  ad.querySelectorAll(".adcard").forEach(b=> b.onclick=()=> renderAdminSite(b.dataset.site));
+}
+
+function renderAdminSite(site){
+  const days = Store.listDays(site);
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="site">${site}</div>
+      <button class="btn" id="back" style="min-height:44px">← 목록</button>
+    </div>
+    <div class="wrap" id="ds"></div>`;
+  document.getElementById("back").onclick = renderAdmin;
+  const ds = document.getElementById("ds");
+  if(days.length===0){ ds.innerHTML = `<div class="card"><p class="sub">기록이 없습니다.</p></div>`; return; }
+  ds.innerHTML = days.map(dt=>{
+    const x = Store.siteSummaryForDate(site, dt);
+    const badge = x.signed?`<span class="badge signed">사인됨</span>`:`<span class="badge unsigned">미사인</span>`;
+    return `<button class="adcard" data-date="${dt}">
+      <div class="nm">${prettyDate(dt)} ${badge}</div>
+      <div class="meta">${x.processes.join(", ")||"—"}</div>
+      <div class="meta">인력 ${x.laborCount}명 · 장비 ${x.equipCount}대 · ${won(x.total)}</div>
+    </button>`;
+  }).join("");
+  ds.querySelectorAll(".adcard").forEach(b=> b.onclick=()=> renderAdminDetail(site, b.dataset.date));
+}
+
+function renderAdminDetail(site, date){
+  const d = Store.getDay(site, date);
+  app.innerHTML = `
+    <div class="topbar"><div class="site">${site}</div>
+      <button class="btn" id="back" style="min-height:44px">← 날짜</button></div>
+    <div class="wrap" id="dd"></div>`;
+  document.getElementById("back").onclick = ()=> renderAdminSite(site);
+  const dd = document.getElementById("dd");
+  if(!d){ dd.innerHTML=`<div class="card"><p class="sub">기록 없음</p></div>`; return; }
+  const labor = d.entries.filter(e=>e.kind==="labor");
+  const equip = d.entries.filter(e=>e.kind==="equipment");
+  const total = labor.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  dd.innerHTML = `
+    <div class="card">
+      <h2>${prettyDate(date)} · 날씨 ${d.weather||"—"}</h2>
+      <div class="meta sub">${d.signature?("✅ 서명 "+d.signature.signedAt):"⬜ 미사인"}</div>
+      <div class="gap"></div>
+      <div class="sub">공정</div>
+      ${d.processes.length? d.processes.map(p=>`<div>• ${p.name}${p.location?` <span class="sub">(${p.location})</span>`:""}</div>`).join(""):'<div class="sub">—</div>'}
+      ${d.note?`<div class="gap"></div><div class="sub">특이사항</div><div>${d.note}</div>`:""}
+    </div>
+    <div class="card"><h2>인력 <span class="sub">합계 ${won(total)}</span></h2>
+      ${labor.length? labor.map(e=>`<div class="row-line"><b>${e.name||"(이름없음)"}</b> · ${man(e.unitPrice)} × ${(+e.manDay).toFixed(1)} = ${won(e.amount)}</div>`).join(""):'<p class="sub">없음</p>'}
+    </div>
+    <div class="card"><h2>반입</h2>
+      ${equip.length? equip.map(e=>`<div class="row-line"><b>${e.type}</b>
+        ${e.company?` · ${e.company}`:""}${e.vehicleNo?` · ${e.vehicleNo}`:""}
+        ${e.count?` · ${e.count}`:""}${e.direction&&e.type==="덤프"?` · ${e.direction}`:""}
+        ${e.driver?` · 기사 ${e.driver}`:""}${e.timeslot?` · ${e.timeslot}`:""}
+        ${e.pourLocation?` · ${e.pourLocation}`:""}${e.memo?` · ${e.memo}`:""}
+        <span class="ephoto" data-pid="${e.photoId||""}"></span></div>`).join(""):'<p class="sub">없음</p>'}
+    </div>
+    <div class="card"><h2>사진 <span class="sub">(${d.photoIds.length}장)</span></h2>
+      <div class="thumbs" id="adthumbs"></div>
+    </div>`;
+  // 번호판 썸네일
+  dd.querySelectorAll(".ephoto[data-pid]").forEach(async el=>{
+    const pid = el.dataset.pid; if(!pid) return;
+    const u = await Store.thumbURL(pid); if(u) el.innerHTML = `<br><img src="${u}" style="max-height:80px;border-radius:8px;margin-top:6px">`;
+  });
+  // 현장 사진 썸네일
+  (async ()=>{
+    const box = dd.querySelector("#adthumbs");
+    for(const id of d.photoIds){
+      const cell=document.createElement("div"); cell.className="thumb"; box.appendChild(cell);
+      const u = await Store.thumbURL(id);
+      if(u) cell.innerHTML = `<img src="${u}">`;
+    }
+  })();
+}
+
+boot();
+</script>
+</body>
+</html>
