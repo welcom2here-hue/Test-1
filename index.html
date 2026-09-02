@@ -397,7 +397,15 @@ function toast(msg){
   clearTimeout(_toastT); _toastT = setTimeout(()=> t.style.display="none", 2600);
 }
 
-function getParams(){ return new URLSearchParams(location.search); }
+// 현장/관리자 구분은 ?site=... 또는 #site=... 어느 쪽으로 와도 읽는다.
+// (호스팅 환경에 따라 쿼리스트링이 프레임까지 전달되지 않을 수 있어 해시도 지원)
+function getParams(){
+  const q = new URLSearchParams(location.search);
+  let h = location.hash.replace(/^#\/?/, "");
+  if(h.startsWith("?")) h = h.slice(1);
+  new URLSearchParams(h).forEach((v,k)=>{ if(!q.has(k)) q.set(k,v); });
+  return q;
+}
 </script>
 
 <div id="app"></div>
@@ -422,12 +430,17 @@ function boot(){
   if(site && CONFIG.sites.includes(site)) return renderWorker(site);
 
   // 현장 파라미터가 없거나 잘못된 경우: 테스트용 현장 선택 화면
-  app.innerHTML = `<div class="topbar"><div class="site">현장 기록</div></div>
+  app.innerHTML = `<div class="topbar"><div class="site">현장 작업일보</div></div>
     <div class="wrap"><div class="card"><h2>현장을 선택하세요</h2>
-    <p class="sub">실제로는 카톡으로 받은 현장별 링크로 바로 들어옵니다. (테스트용 선택 화면)</p>
+    <p class="sub">실제 운영에서는 카톡으로 받은 <b>현장별 링크</b>로 바로 들어옵니다.
+    이 화면은 한 기기에서 모든 화면을 눌러볼 수 있는 테스트 입구입니다.</p>
     <div class="gap"></div>
     ${CONFIG.sites.map(s=>`<a class="btn block primary" style="margin:8px 0;text-decoration:none;text-align:center"
-        href="?site=${encodeURIComponent(s)}">${s}</a>`).join("")}
+        href="#site=${encodeURIComponent(s)}">${s}</a>`).join("")}
+    <div class="gap"></div>
+    <a class="btn block" style="margin:8px 0;text-decoration:none;text-align:center;color:var(--muted)"
+        href="#admin=${encodeURIComponent(CONFIG.adminToken)}">🗂️ 관리자 화면</a>
+    <p class="sub" style="margin-top:6px">실제로는 관리자에게만 별도의 긴 링크를 줍니다.</p>
     </div></div>`;
 }
 
@@ -1023,6 +1036,8 @@ function renderAdminDetail(site, date){
   })();
 }
 
+// 해시로 현장을 바꿔 들어오면 다시 렌더 (현장 선택 → 해당 현장)
+window.addEventListener("hashchange", boot);
 boot();
 </script>
 </body>
