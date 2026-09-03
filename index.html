@@ -198,6 +198,9 @@ const CONFIG = {
     "양수기", "절단기", "전동드릴", "그라인더", "수평계", "줄자"
   ],
 
+  // 저녁에 일 마치고 공구·자재를 어디에 뒀는지 (확인 체크용)
+  PLACES: ["창고", "차", "현장"],
+
   PHOTO_TYPES: ["레미콘", "인력", "덤프", "기타"], // 낮 화면 사진 종류 버튼
   PHOTO_MAX_PX: 1200,   // 사진 원본 저장 크기(긴 변 기준)
   THUMB_MAX_PX: 160,    // 썸네일 크기
@@ -539,42 +542,46 @@ async function renderDay(){
   }
   s.appendChild(listCard);
 
-  // ---- 오늘 가지고 온 공구 (아침) ----
+  // ---- 오늘 공구 (아침 가져온 것 + 중간에 산·추가한 것) ----
   const toolList = await Store.loadTools();
-  const cT = el(`<div class="card"><div class="sec-title">🧰 오늘 가지고 온 공구</div></div>`);
-  cT.appendChild(el(`<div class="muted" style="margin-bottom:8px">챙긴 공구를 누르세요. 다시 누르면 취소.</div>`));
+  const tDl = el(`<datalist id="toollist"></datalist>`);
+  toolList.forEach(n=> tDl.appendChild(el(`<option value="${esc(n)}">`)));
+  s.appendChild(tDl);
+
+  const cT = el(`<div class="card"><div class="sec-title">🧰 오늘 공구</div></div>`);
+  cT.appendChild(el(`<div class="muted" style="margin-bottom:8px">가져온 공구를 누르세요. 다시 누르면 취소.</div>`));
   const tGrid = el(`<div class="grid2"></div>`);
   toolList.forEach(name=>{
-    const on = APP.rec.items.some(it=>it.kind==="공구" && it.name===name);
+    const on = APP.rec.items.some(it=>it.kind==="공구" && it.source==="지참" && it.name===name);
     const b = el(`<button class="btn ${on?'sel':'pick'}">${esc(name)}</button>`);
     b.disabled = locked;
     b.onclick = async ()=>{
-      const i = APP.rec.items.findIndex(it=>it.kind==="공구" && it.name===name);
+      const i = APP.rec.items.findIndex(it=>it.kind==="공구" && it.source==="지참" && it.name===name);
       if(i>=0) APP.rec.items.splice(i,1);
-      else APP.rec.items.push({ id:uid(), kind:"공구", name, count:1 });
+      else APP.rec.items.push({ id:uid(), kind:"공구", source:"지참", name, count:1, place:null });
       await save(); renderDay();
     };
     tGrid.appendChild(b);
   });
   cT.appendChild(tGrid);
   if(!locked){
-    const addT = el(`<button class="btn ghost" style="margin-top:10px">+ 직접추가</button>`);
+    const addT = el(`<button class="btn ghost" style="margin-top:10px">+ 가져온 공구 직접추가</button>`);
     addT.onclick = async ()=>{
-      const name = prompt("추가할 공구 이름");
+      const name = prompt("가져온 공구 이름");
       if(name && name.trim()){
         await Store.addTool(name.trim());
-        if(!APP.rec.items.some(it=>it.kind==="공구" && it.name===name.trim()))
-          APP.rec.items.push({ id:uid(), kind:"공구", name:name.trim(), count:1 });
+        if(!APP.rec.items.some(it=>it.kind==="공구" && it.source==="지참" && it.name===name.trim()))
+          APP.rec.items.push({ id:uid(), kind:"공구", source:"지참", name:name.trim(), count:1, place:null });
         await save(); renderDay();
       }
     };
     cT.appendChild(addT);
   }
-  // 고른 공구 수량 조정
-  const chosenTools = APP.rec.items.filter(it=>it.kind==="공구");
-  if(chosenTools.length){
+  // 가져온 공구 수량 조정
+  const broughtTools = APP.rec.items.filter(it=>it.kind==="공구" && it.source==="지참");
+  if(broughtTools.length){
     const cnt = el(`<div style="margin-top:12px"></div>`);
-    chosenTools.forEach(it=>{
+    broughtTools.forEach(it=>{
       const row = el(`<div class="row" style="justify-content:space-between;margin-bottom:8px">
         <span style="font-weight:700">${esc(it.name)}</span></div>`);
       const box = el(`<div class="row"></div>`);
@@ -589,6 +596,20 @@ async function renderDay(){
       cnt.appendChild(row);
     });
     cT.appendChild(cnt);
+  }
+  // 산·추가한 공구 (중간에 구입하거나 들여온 것)
+  const boughtTools = APP.rec.items.filter(it=>it.kind==="공구" && it.source==="구입");
+  if(boughtTools.length){
+    cT.appendChild(el(`<div style="font-weight:800;margin:14px 0 6px">산·추가한 공구</div>`));
+    boughtTools.forEach(it=> cT.appendChild(purchasedToolRow(it, locked, renderDay)));
+  }
+  if(!locked){
+    const addBT = el(`<button class="btn ghost" style="margin-top:6px">+ 산·추가한 공구</button>`);
+    addBT.onclick = async ()=>{
+      APP.rec.items.push({ id:uid(), kind:"공구", source:"구입", name:"", count:1, amount:"", vendor:"", place:null, photoId:null, photoThumb:null });
+      await save(); renderDay();
+    };
+    cT.appendChild(addBT);
   }
   s.appendChild(cT);
 
@@ -702,6 +723,71 @@ function materialRow(it, locked, rerender){
     box.appendChild(del);
   }
   return box;
+}
+
+// 산·추가한 공구 한 줄
+function purchasedToolRow(it, locked, rerender){
+  const box = el(`<div class="item"></div>`);
+  box.appendChild(el(`<div class="head"><span class="kind">산·추가 공구</span></div>`));
+  // 이름
+  box.appendChild(el(`<label class="fld">공구 이름</label>`));
+  const name = el(`<input type="text" list="toollist" value="${esc(it.name)}" placeholder="예) 전동드릴">`);
+  name.disabled=locked;
+  name.oninput=(e)=>{ it.name=e.target.value; };
+  name.onchange=async (e)=>{ await Store.addTool(e.target.value.trim()); await save(); };
+  box.appendChild(name);
+  // 개수
+  box.appendChild(el(`<label class="fld">개수</label>`));
+  const qty = el(`<input type="number" inputmode="numeric" value="${Number(it.count)||1}">`);
+  qty.disabled=locked; qty.oninput=(e)=>{ it.count=Number(e.target.value)||1; }; qty.onchange=save;
+  box.appendChild(qty);
+  // 금액 (비워도 됨)
+  box.appendChild(el(`<label class="fld">금액 (비워도 됩니다)</label>`));
+  const amt = el(`<input type="number" inputmode="numeric" value="${it.amount!==""&&it.amount!=null?Number(it.amount):""}" placeholder="구입비">`);
+  amt.disabled=locked; amt.oninput=(e)=>{ it.amount = e.target.value===""?"":(Number(e.target.value)||0); }; amt.onchange=save;
+  box.appendChild(amt);
+  // 구입처
+  box.appendChild(el(`<label class="fld">구입처 (비워도 됩니다)</label>`));
+  const vend = el(`<input type="text" value="${esc(it.vendor||"")}" placeholder="어디서 샀는지">`);
+  vend.disabled=locked; vend.oninput=(e)=>{ it.vendor=e.target.value; }; vend.onchange=save;
+  box.appendChild(vend);
+  // 사진 + 삭제 (공용 헬퍼)
+  attachPhotoAndDelete(box, it, locked, rerender);
+  return box;
+}
+
+// 사진 첨부 + 삭제 (materialRow / purchasedToolRow 공용)
+function attachPhotoAndDelete(box, it, locked, rerender){
+  box.appendChild(el(`<label class="fld">사진 첨부 (선택)</label>`));
+  if(it.photoThumb){
+    box.appendChild(el(`<img src="${it.photoThumb}" style="height:110px;border-radius:8px;border:1px solid var(--line)">`));
+  }
+  if(!locked){
+    const wrap=el(`<div><button class="btn ghost small" style="width:auto;margin-top:6px">📷 사진 첨부</button><input type="file" accept="image/*" capture="environment" style="display:none"></div>`);
+    const inp=wrap.querySelector("input"); const b=wrap.querySelector("button");
+    b.onclick=()=>inp.click();
+    inp.onchange=async (e)=>{
+      const f=e.target.files&&e.target.files[0]; e.target.value="";
+      if(!f) return;
+      try{
+        const {blob, thumb}=await processPhoto(f);
+        const id="p_"+uid();
+        const ok=await Store.savePhoto(id, blob);
+        if(!ok){ alert("저장 공간 부족으로 이 사진은 건너뜁니다."); return; }
+        it.photoId=id; it.photoThumb=thumb;
+        await save(); rerender && rerender();
+      }catch(err){ alert("사진 처리 실패"); }
+    };
+    box.appendChild(wrap);
+  }
+  if(!locked){
+    const del=el(`<div style="text-align:right;margin-top:10px"><button class="btn del">삭제</button></div>`);
+    del.querySelector("button").onclick=async ()=>{
+      const i=APP.rec.items.indexOf(it); if(i>=0) APP.rec.items.splice(i,1);
+      await save(); rerender && rerender();
+    };
+    box.appendChild(del);
+  }
 }
 
 async function handleShot(file){
@@ -859,38 +945,34 @@ async function renderEvening(){
   cIn.appendChild(inWrap);
   s.appendChild(cIn);
 
-  // 4) 오늘 자재 확인 (아침 가져온 자재 + 새로 산 자재를 저녁에 한 번에 체크)
-  const cMat = el(`<div class="card"><div class="sec-title">④ 오늘 자재 확인</div></div>`);
-  cMat.appendChild(el(`<div class="muted" style="margin-bottom:8px">아침에 가져온 자재 + 새로 산 자재입니다. 확인한 것만 눌러 주세요.</div>`));
-  const matItems = APP.rec.items.filter(it=>it.kind==="자재");
-  if(matItems.length===0){
-    cMat.appendChild(el(`<div class="muted">등록된 자재가 없습니다. [📷 사진] 화면에서 자재를 추가하세요.</div>`));
+  // 4) 공구·자재 확인 (일 마치고: 각 물건을 창고/차/현장 어디에 뒀는지 체크)
+  const cChk = el(`<div class="card"><div class="sec-title">④ 공구·자재 확인</div></div>`);
+  cChk.appendChild(el(`<div class="muted" style="margin-bottom:8px">일 마치고 각 물건을 어디에 뒀는지 눌러 주세요. (창고 / 차 / 현장)<br>추가·구입은 [📷 사진] 화면에서.</div>`));
+  const stuff = APP.rec.items.filter(it=>it.kind==="공구" || it.kind==="자재");
+  if(stuff.length===0){
+    cChk.appendChild(el(`<div class="muted">등록된 공구·자재가 없습니다. [📷 사진] 화면에서 추가하세요.</div>`));
   }else{
-    matItems.forEach(it=>{
-      const on = !!it.checked;
-      const src = it.source==="구입" ? "새로 산" : "가져온";
-      const money = (it.amount!==""&&it.amount!=null) ? " · "+won(it.amount)+"원" : "";
-      const desc = [it.name||"(이름없음)", it.qty].filter(Boolean).join(" ") + `  <span class="muted" style="font-size:14px">(${src}${esc(money)})</span>`;
-      const rowBtn = el(`<button class="btn ${on?'sel':'pick'}" style="justify-content:space-between;margin-bottom:8px">
-        <span>${on?'✅':'⬜'} ${desc}</span></button>`);
-      rowBtn.disabled = locked;
-      rowBtn.onclick = async ()=>{ it.checked = !it.checked; await save(); renderEvening(); };
-      cMat.appendChild(rowBtn);
+    stuff.forEach(it=>{
+      const typeLabel = it.kind==="공구" ? "공구" : "자재";
+      const srcLabel  = it.source==="구입" ? "산" : "가져온";
+      const q = it.kind==="공구" ? ((Number(it.count)>1)? it.count+"개" : "") : (it.qty||"");
+      const nm = it.name || "(이름없음)";
+      const box = el(`<div class="item"></div>`);
+      box.appendChild(el(`<div style="font-weight:800;margin-bottom:8px">${it.place?'✅':'⬜'} ${esc(nm)} ${esc(q)} <span class="muted" style="font-size:14px">(${srcLabel} ${typeLabel})</span></div>`));
+      const pRow = el(`<div class="grid3"></div>`);
+      CONFIG.PLACES.forEach(pl=>{
+        const b = el(`<button class="btn small ${it.place===pl?'sel':'pick'}" style="width:100%">${esc(pl)}</button>`);
+        b.disabled = locked;
+        b.onclick = async ()=>{ it.place = (it.place===pl ? null : pl); await save(); renderEvening(); };
+        pRow.appendChild(b);
+      });
+      box.appendChild(pRow);
+      cChk.appendChild(box);
     });
-    const done = matItems.filter(it=>it.checked).length;
-    cMat.appendChild(el(`<div class="total" style="font-size:20px">확인 ${done} / ${matItems.length}</div>`));
+    const done = stuff.filter(it=>it.place).length;
+    cChk.appendChild(el(`<div class="total" style="font-size:20px">확인 ${done} / ${stuff.length}</div>`));
   }
-  if(!locked){
-    const addMat = el(`<button class="btn ghost" style="margin-top:6px">+ 자재 추가</button>`);
-    addMat.onclick = async ()=>{
-      APP.rec.items.push({ id:uid(), kind:"자재", source:"구입", name:"", qty:"", amount:"", vendor:"", checked:true, photoId:null, photoThumb:null });
-      await save();
-      alert("추가했습니다. 자재명·수량은 [📷 사진] 화면의 '새로 산 자재'에서 입력하세요.");
-      renderEvening();
-    };
-    cMat.appendChild(addMat);
-  }
-  s.appendChild(cMat);
+  s.appendChild(cChk);
 
   // 5) 사인
   const cS = el(`<div class="card"><div class="sec-title">⑤ 사인</div></div>`);
@@ -1170,6 +1252,8 @@ async function renderAdmin(){
     const equip = items.filter(i=>i.kind==="장비");
     const tools = items.filter(i=>i.kind==="공구");
     const buys  = items.filter(i=>i.kind==="자재" && i.source==="구입");
+    const stuff = items.filter(i=>i.kind==="공구" || i.kind==="자재");
+    const stuffDone = stuff.filter(i=>i.place).length;
     const total = labor.reduce((a,i)=>a+(Number(i.amount)||0),0);
     const procs = rec && rec.processes.length ? rec.processes.map(p=>p.name).join(", ") : "-";
     const signed = rec && rec.signature;
@@ -1185,6 +1269,7 @@ async function renderAdmin(){
         <div class="kv"><span>장비 수</span><span>${equip.length} 대</span></div>
         <div class="kv"><span>공구</span><span>${tools.length} 종</span></div>
         <div class="kv"><span>새로 산 자재</span><span>${buys.length} 건</span></div>
+        <div class="kv"><span>공구·자재 확인</span><span>${stuffDone} / ${stuff.length}</span></div>
         <div class="kv"><span>오늘 합계</span><span>${won(total)} 원</span></div>
       </div>
     </div>`);
@@ -1216,10 +1301,10 @@ async function renderAdminOverview(){
     const labor = rec.items.filter(i=>i.kind==="인력");
     sumWorkers += labor.length;
     sumLabor   += labor.reduce((a,i)=>a+(Number(i.amount)||0),0);
-    sumBuy     += rec.items.filter(i=>i.kind==="자재"&&i.source==="구입").reduce((a,i)=>a+(Number(i.amount)||0),0);
+    sumBuy     += rec.items.filter(i=>i.source==="구입"&&(i.kind==="자재"||i.kind==="공구")).reduce((a,i)=>a+(Number(i.amount)||0),0);
     if(rec.signature) signedCnt++;
     rec.items.filter(i=>i.kind==="공구").forEach(t=>{
-      (toolMap[t.name] = toolMap[t.name]||[]).push({site, count:t.count||1});
+      (toolMap[t.name] = toolMap[t.name]||[]).push({site, count:t.count||1, place:t.place});
     });
     const mats = rec.items.filter(i=>i.kind==="자재");
     if(mats.length) matMap[site]=mats;
@@ -1232,22 +1317,22 @@ async function renderAdminOverview(){
     <div class="kv"><span>사인 완료</span><span>${signedCnt} / ${sites.length}</span></div>
     <div class="kv"><span>총 인원</span><span>${sumWorkers} 명</span></div>
     <div class="kv"><span>총 인건비</span><span>${won(sumLabor)} 원</span></div>
-    <div class="kv"><span>총 자재 구입비</span><span>${won(sumBuy)} 원</span></div>
+    <div class="kv"><span>총 공구·자재 구입비</span><span>${won(sumBuy)} 원</span></div>
   </div>`));
 
-  // 공구 위치 (어느 공구가 오늘 어느 현장에 있나)
+  // 공구 위치 (어느 공구가 오늘 어느 현장에, 창고/차/현장 중 어디에 있나)
   const toolCard = el(`<div class="card"><div class="sec-title">🧰 공구 위치</div></div>`);
   const toolNames = Object.keys(toolMap);
   if(!toolNames.length){ toolCard.appendChild(el(`<div class="muted">오늘 등록된 공구 없음</div>`)); }
   else{
     toolNames.sort().forEach(name=>{
-      const where = toolMap[name].map(x=>`${x.site}${x.count>1?"("+x.count+")":""}`).join(", ");
+      const where = toolMap[name].map(x=>`${x.site}${x.count>1?"("+x.count+")":""}${x.place?"·"+x.place:"·미확인"}`).join(", ");
       toolCard.appendChild(el(`<div class="kv"><span>${esc(name)}</span><span>${esc(where)}</span></div>`));
     });
   }
   s.appendChild(toolCard);
 
-  // 자재 현황 (현장별 가져온/새로 산 자재)
+  // 자재 현황 (현장별 가져온/새로 산 자재 + 저녁 위치)
   const matCard = el(`<div class="card"><div class="sec-title">📦 자재 현황</div></div>`);
   const matSites = Object.keys(matMap);
   if(!matSites.length){ matCard.appendChild(el(`<div class="muted">오늘 등록된 자재 없음</div>`)); }
@@ -1256,9 +1341,10 @@ async function renderAdminOverview(){
       matCard.appendChild(el(`<div style="font-weight:800;margin:10px 0 4px">${esc(site)}</div>`));
       matMap[site].forEach(m=>{
         const src = m.source==="구입" ? "새로 산" : "가져온";
-        const chk = m.checked ? "✅" : "⬜";
+        const chk = m.place ? "✅" : "⬜";
+        const place = m.place ? m.place : "미확인";
         const label = [m.name||"(이름없음)", m.qty].filter(Boolean).join(" ");
-        matCard.appendChild(el(`<div class="kv"><span>${chk} ${esc(label)}</span><span class="muted">${src}</span></div>`));
+        matCard.appendChild(el(`<div class="kv"><span>${chk} ${esc(label)} <span class="muted" style="font-size:14px">(${src})</span></span><span class="muted">${esc(place)}</span></div>`));
       });
     });
   }
@@ -1310,10 +1396,12 @@ async function renderAdminDetail(){
   const tools=rec.items.filter(i=>i.kind==="공구");
   const brought=rec.items.filter(i=>i.kind==="자재"&&i.source==="지참");
   const buys =rec.items.filter(i=>i.kind==="자재"&&i.source==="구입");
-  const allMat=rec.items.filter(i=>i.kind==="자재");
+  const buyTools=rec.items.filter(i=>i.kind==="공구"&&i.source==="구입");
+  const stuff=rec.items.filter(i=>i.kind==="공구"||i.kind==="자재");
   const total=labor.reduce((a,i)=>a+(Number(i.amount)||0),0);
-  const buyTotal=buys.reduce((a,i)=>a+(Number(i.amount)||0),0);
-  const matDone=allMat.filter(i=>i.checked).length;
+  const buyTotal=buys.concat(buyTools).reduce((a,i)=>a+(Number(i.amount)||0),0);
+  const stuffDone=stuff.filter(i=>i.place).length;
+  const placeStr=(i)=> i.place?`<span class="badge ok">${esc(i.place)}</span>`:`<span class="muted">미확인</span>`;
 
   // 공정
   s.appendChild(el(`<div class="card">
@@ -1339,10 +1427,14 @@ async function renderAdminDetail(){
     }).join("") || '<div class="muted">없음</div>'}
   </div>`));
 
-  // 공구 (아침)
+  // 공구 (가져온 것 + 산·추가한 것) — 각 물건이 저녁에 어디에 있는지(창고/차/현장)
   s.appendChild(el(`<div class="card">
-    <div class="sec-title">🧰 가지고 온 공구 (${tools.length}종)</div>
-    ${tools.map(i=>`<div class="kv"><span>${esc(i.name||"-")}</span><span>${i.count||1} 개</span></div>`).join("") || '<div class="muted">없음</div>'}
+    <div class="sec-title">🧰 공구 (${tools.length}종)</div>
+    ${tools.map(i=>{
+      const src=i.source==="구입"?"산":"가져온";
+      const money=(i.source==="구입"&&i.amount!==""&&i.amount!=null)?" · "+won(i.amount)+"원":"";
+      return `<div class="kv"><span>${esc(i.name||"-")} ${i.count>1?"("+i.count+")":""} ${i.photoThumb?'📷':''}<br><span class="muted" style="font-size:14px">${src}${money}</span></span><span>${placeStr(i)}</span></div>`;
+    }).join("") || '<div class="muted">없음</div>'}
   </div>`));
 
   // 가져온 자재 (아침)
@@ -1350,7 +1442,7 @@ async function renderAdminDetail(){
     <div class="sec-title">📦 가져온 자재 (${brought.length}건)</div>
     ${brought.map(i=>{
       const label=[i.name, i.qty].filter(Boolean).join(" · ");
-      return `<div class="kv"><span>${i.checked?'✅':'⬜'} ${esc(label||"-")} ${i.photoThumb?'📷':''}</span><span class="muted">가져온</span></div>`;
+      return `<div class="kv"><span>${esc(label||"-")} ${i.photoThumb?'📷':''}</span><span>${placeStr(i)}</span></div>`;
     }).join("") || '<div class="muted">없음</div>'}
   </div>`));
 
@@ -1360,10 +1452,10 @@ async function renderAdminDetail(){
     ${buys.map(i=>{
       const label=[i.name, i.qty, i.vendor].filter(Boolean).join(" · ");
       const money=(i.amount!==""&&i.amount!=null)?won(i.amount)+" 원":"";
-      return `<div class="kv"><span>${i.checked?'✅':'⬜'} ${esc(label||"-")} ${i.photoThumb?'📷':''}</span><span>${money}</span></div>`;
+      return `<div class="kv"><span>${esc(label||"-")} ${i.photoThumb?'📷':''}<br><span class="muted" style="font-size:14px">${money}</span></span><span>${placeStr(i)}</span></div>`;
     }).join("") || '<div class="muted">없음</div>'}
     ${buyTotal>0?`<div class="total">구입비 합계 ${won(buyTotal)} 원</div>`:""}
-    ${allMat.length?`<div class="total" style="font-size:18px">저녁 자재 확인 ${matDone} / ${allMat.length}</div>`:""}
+    ${stuff.length?`<div class="total" style="font-size:18px">저녁 공구·자재 확인 ${stuffDone} / ${stuff.length}</div>`:""}
   </div>`));
 
   // 사진
