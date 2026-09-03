@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>현장 기록</title>
+<!--
+================================================================================
+ 건설 현장 기록 웹앱 (단일 HTML 파일)
+================================================================================
+ 사용 대상 : 토목 현장 책임자 (50~60대), 장갑 낀 손, 폰으로 현장에서 사용
+ 배포 방법 : 이 파일을 웹에 올리고, 현장마다 다른 링크(?s=토큰)를 카톡으로 전달
+ 로그인    : 없음. 링크가 곧 현장 구분.
+
+ --------------------------------------------------------------------------------
+ [ 링크(URL) 구조 ]
+ --------------------------------------------------------------------------------
+   작업자 화면 : https://내주소/index.html?s=<현장토큰>
+                 예) ?s=k7x2a9   ->  A현장
+                 현장마다 토큰이 다르며, CONFIG.SITE_LINKS 에서 관리한다.
+   관리자 화면 : https://내주소/index.html?admin=<긴랜덤문자열>
+                 CONFIG.ADMIN_TOKEN 값과 일치해야 열린다.
+                 ?admin=1 처럼 추측 가능한 형태가 아니라 긴 문자열이라
+                 남이 우연히 들어올 확률은 낮다. 다만 이것은 "자물쇠"가 아니라
+                 "안 보이는 문" 수준이다.
+
+ [ 실제 운영 때 관리자 화면을 제대로 막는 방법 (지금은 미구현) ]
+   1) 서버를 붙인 뒤 관리자 페이지를 서버 로그인(아이디/비번) 뒤에 둔다.
+   2) 또는 웹서버(Nginx 등) Basic Auth 로 /admin 경로를 잠근다.
+   3) 관리자 링크는 카톡·문자로 뿌리지 말고 관리자 본인에게만 직접 전달한다.
+   * 지금 구조(브라우저 저장)에서는 링크를 아는 사람은 누구나 볼 수 있으니
+     민감정보(주민번호 등)는 절대 입력하지 말 것.
+
+ --------------------------------------------------------------------------------
+ [ 저장 구조 요약 ]
+ --------------------------------------------------------------------------------
+   - 텍스트/기록 : localStorage  (현장+날짜 = dayRecord 한 덩어리)
+   - 사진 원본   : IndexedDB (1200px 로 줄여서 저장)
+   - 썸네일      : dayRecord 안에 작게(약 160px) 넣어둠 -> 목록이 빨라짐
+   - 읽고 쓰는 모든 동작은 Store.* 함수로만 처리한다.
+
+ --------------------------------------------------------------------------------
+ [ 나중에 서버를 붙일 때 바꿔야 하는 곳 (여기만 고치면 됨) ]
+ --------------------------------------------------------------------------------
+   * 화면 코드(render*, 이벤트)는 손대지 않는다.
+   * 아래 Store 객체의 내부만 fetch()로 교체하면 된다:
+
+     Store.loadDay(site, date)      -> GET  /api/day?site=..&date=..
+     Store.saveDay(record)          -> POST /api/day
+     Store.listDates(site)          -> GET  /api/days?site=..
+     Store.savePhoto(id, blob)      -> POST /api/photo (multipart)
+     Store.loadPhoto(id)            -> GET  /api/photo/:id
+     Store.loadVehicles/saveVehicle -> /api/vehicles
+     Store.loadProcesses/addProcess -> /api/processes
+     Store.loadNames/addName        -> /api/names
+
+   * 함수들은 이미 전부 async (Promise 반환)로 설계되어 있어
+     내부만 네트워크 호출로 바꿔도 화면 쪽은 그대로 동작한다.
+   * 관리자 실시간 조회 : saveDay 후 서버가 저장하면, 관리자 화면에서
+     주기적으로(polling) 또는 웹소켓으로 loadDay 를 다시 부르면 된다.
+================================================================================
+-->
+<style>
+  :root{
+    --bg:#f2f4f7; --card:#ffffff; --line:#d0d5dd; --ink:#1a1a1a;
+    --muted:#667085; --brand:#1565c0; --brand-ink:#ffffff;
+    --ok:#2e7d32; --warn:#c62828; --pick:#0b4a8f; --pickbg:#e3f0ff;
+    --big:22px; --huge:30px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","맑은 고딕",sans-serif;
+    font-size:var(--big); line-height:1.4; -webkit-text-size-adjust:100%;
+    padding-bottom:96px;
+  }
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--brand); color:#fff;
+    padding:14px 16px; font-size:24px; font-weight:800;
+    display:flex; justify-content:space-between; align-items:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+  }
+  header.top .date{font-size:16px; font-weight:600; opacity:.95;}
+  .wrap{padding:14px; max-width:720px; margin:0 auto;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px;}
+  .sec-title{font-size:19px; font-weight:800; margin:2px 0 12px; color:var(--ink);}
+  .muted{color:var(--muted); font-size:16px;}
+
+  /* 버튼 */
+  button{font-family:inherit;}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    border:2px solid var(--line); background:#fff; color:var(--ink);
+    border-radius:14px; padding:16px 14px; font-size:var(--big); font-weight:700;
+    min-height:60px; cursor:pointer; width:100%;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn.brand{background:var(--brand); color:#fff; border-color:var(--brand);}
+  .btn.huge{font-size:var(--huge); min-height:96px; border-radius:18px;}
+  .btn.small{min-height:48px; padding:10px 12px; font-size:17px; width:auto;}
+  .btn.pick{background:var(--pickbg); border-color:var(--brand); color:var(--pick);}
+  .btn.sel{background:var(--brand); color:#fff; border-color:var(--brand);} /* 색 반전 */
+  .btn.del{background:#fff; color:var(--warn); border-color:#f2b8b5; min-height:48px; width:auto; padding:10px 14px; font-size:17px;}
+  .btn.ghost{background:#fff; color:var(--brand); border-color:var(--brand);}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .grid4{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+
+  /* 입력 */
+  input[type=text], input[type=number]{
+    font-family:inherit; font-size:var(--big); padding:14px; border:2px solid var(--line);
+    border-radius:12px; width:100%; background:#fff; color:var(--ink);
+  }
+  label.fld{display:block; font-size:15px; color:var(--muted); margin:10px 0 4px; font-weight:700;}
+
+  /* 하단 탭 */
+  .tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex;
+    background:#fff; border-top:1px solid var(--line);
+  }
+  .tabbar button{
+    flex:1; border:none; background:#fff; padding:14px 6px; font-size:18px; font-weight:800;
+    color:var(--muted); cursor:pointer;
+  }
+  .tabbar button.on{color:var(--brand); border-top:4px solid var(--brand); margin-top:-1px;}
+
+  /* 사진 */
+  .thumbs{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;}
+  .thumb{position:relative; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#eee;}
+  .thumb img{width:100%; height:110px; object-fit:cover; display:block;}
+  .thumb .tag{position:absolute; left:0; bottom:0; right:0; background:rgba(0,0,0,.55); color:#fff; font-size:14px; padding:3px 6px; display:flex; justify-content:space-between;}
+
+  /* 인력/반입 줄 */
+  .item{border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; background:#fbfcfe;}
+  .item .head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .item .kind{font-weight:800; font-size:17px; color:var(--brand);}
+  .amt{font-weight:800; font-size:20px;}
+  .total{font-size:26px; font-weight:900; text-align:right; padding-top:8px;}
+
+  /* 팝업 */
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .modal{background:#fff; border-radius:16px; padding:20px; width:100%; max-width:480px;}
+  .modal h3{margin:0 0 8px; font-size:22px;}
+
+  /* 서명 */
+  #sigpad{border:2px dashed var(--brand); border-radius:12px; width:100%; height:220px; background:#fff; touch-action:none;}
+
+  /* 관리자 카드 */
+  .site-card{cursor:pointer;}
+  .site-card .name{font-size:22px; font-weight:900;}
+  .kv{display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed #eee; font-size:17px;}
+  .badge{display:inline-block; padding:4px 10px; border-radius:999px; font-size:15px; font-weight:800;}
+  .badge.ok{background:#e6f4ea; color:var(--ok);}
+  .badge.no{background:#fdecea; color:var(--warn);}
+
+  .banner{background:#fff8e1; border:1px solid #ffe082; color:#7a5b00; padding:12px 14px; border-radius:12px; margin-bottom:12px; font-size:16px; font-weight:700;}
+  .locked-note{background:#eef7ee; border:1px solid #b7dfb9; color:#1b5e20; padding:12px; border-radius:12px; font-weight:800; margin-bottom:12px;}
+  .hint{font-size:15px; color:var(--muted); margin-top:6px;}
+  .spacer{height:8px;}
+</style>
+</head>
+<body>
+
+<!-- ========================================================================
+     CONFIG : 바꿀 값은 전부 여기 한 곳에 모여 있음
+     ======================================================================== -->
+<script>
+const CONFIG = {
+  // 현장 링크 토큰 -> 현장 이름  (현장마다 다른 링크. 카톡으로 이 링크를 보낸다)
+  //   예: ?s=k7x2a9  ->  A현장
+  SITE_LINKS: {
+    "k7x2a9": "A현장",
+    "m4p1qz": "B현장",
+    "t9s5wd": "C현장",
+    "b2h8ye": "D현장",
+    "r6c3vn": "E현장",
+  },
+
+  // 관리자 화면 접속용 긴 랜덤 문자열 (?admin=아래값)
+  //   운영 시 반드시 새 값으로 바꾸고, 관리자에게만 링크를 전달할 것.
+  ADMIN_TOKEN: "a8F3-kd92-Lm71-qP04-zX56-rT29-bV88",
+
+  COMPANIES: ["A업체", "B업체", "C업체"],       // 업체
+  WAGES:     [160000, 170000, 180000],          // 인력 단가
+  GONGSU:    [1.0, 0.5, 1.5],                    // 공수
+  WEATHER:   ["맑음", "흐림", "비", "눈"],        // 날씨
+  PROCESSES: [                                   // 기본 공정 (사용자가 추가하면 뒤에 쌓임)
+    "측량/규준틀", "터파기", "잔토반출", "기초잡석", "하수관로부설",
+    "관접합/맨홀", "되메우기", "다짐", "거푸집", "철근조립",
+    "콘크리트타설", "석축/옹벽", "포장", "정리/청소", "우천대기"
+  ],
+
+  PHOTO_TYPES: ["레미콘", "인력", "덤프", "기타"], // 낮 화면 사진 종류 버튼
+  PHOTO_MAX_PX: 1200,   // 사진 원본 저장 크기(긴 변 기준)
+  THUMB_MAX_PX: 160,    // 썸네일 크기
+};
+</script>
+
+<!-- ========================================================================
+     STORE : 저장/불러오기. 서버 붙일 땐 이 안쪽만 교체하면 됨. (전부 async)
+     ======================================================================== -->
+<script>
+const Store = (function(){
+  const LS = window.localStorage;
+  const K = {
+    day:  (site,date)=>`day:${site}:${date}`,
+    dayIndex: (site)=>`dayindex:${site}`,   // 그 현장의 날짜 목록
+    vehicles: "vehicles",                   // 차량번호 -> {company, driver}
+    processes:"processes_extra",            // 사용자가 추가한 공정
+    names:    "worker_names",               // 인력 이름 자동완성
+  };
+
+  // ---- IndexedDB (사진 원본 전용) ----
+  let _db=null;
+  function idb(){
+    if(_db) return Promise.resolve(_db);
+    return new Promise((res,rej)=>{
+      const r = indexedDB.open("site-photos", 1);
+      r.onupgradeneeded = ()=>{ r.result.createObjectStore("photos"); };
+      r.onsuccess = ()=>{ _db=r.result; res(_db); };
+      r.onerror   = ()=> rej(r.error);
+    });
+  }
+  async function idbPut(id, blob){
+    const db = await idb();
+    return new Promise((res,rej)=>{
+      const tx = db.transaction("photos","readwrite");
+      tx.objectStore("photos").put(blob, id);
+      tx.oncomplete=()=>res(true);
+      tx.onerror=()=>rej(tx.error);
+    });
+  }
+  async function idbGet(id){
+    const db = await idb();
+    return new Promise((res,rej)=>{
+      const tx = db.transaction("photos","readonly");
+      const g = tx.objectStore("photos").get(id);
+      g.onsuccess=()=>res(g.result||null);
+      g.onerror=()=>rej(g.error);
+    });
+  }
+
+  function jget(key, def){ try{ const v=LS.getItem(key); return v?JSON.parse(v):def; }catch(e){ return def; } }
+  function jset(key, val){
+    try{ LS.setItem(key, JSON.stringify(val)); return true; }
+    catch(e){
+      // 저장 공간이 찼을 때
+      if(e && (e.name==="QuotaExceededError" || e.code===22)){ return false; }
+      console.warn("localStorage 저장 실패", e); return false;
+    }
+  }
+
+  return {
+    // ---- 하루 기록 ----
+    async loadDay(site, date){
+      return jget(K.day(site,date), null);
+    },
+    async saveDay(rec){
+      const ok = jset(K.day(rec.site, rec.date), rec);
+      if(ok){
+        const idx = jget(K.dayIndex(rec.site), []);
+        if(!idx.includes(rec.date)){ idx.push(rec.date); idx.sort().reverse(); jset(K.dayIndex(rec.site), idx); }
+      }
+      return ok; // false 면 공간 부족
+    },
+    async listDates(site){
+      return jget(K.dayIndex(site), []);
+    },
+
+    // ---- 사진 ----
+    // meta 는 dayRecord 안에 저장(썸네일 포함), 원본 blob 은 IndexedDB.
+    async savePhoto(id, blob){
+      try{ await idbPut(id, blob); return true; }
+      catch(e){ console.warn("사진 저장 실패", e); return false; }
+    },
+    async loadPhoto(id){
+      try{ return await idbGet(id); }catch(e){ return null; }
+    },
+
+    // ---- 차량 목록 (번호 -> 업체/기사) ----
+    async loadVehicles(){ return jget(K.vehicles, {}); },
+    async saveVehicle(carNo, company, driver){
+      if(!carNo) return;
+      const v = jget(K.vehicles, {});
+      v[carNo] = Object.assign({}, v[carNo], {
+        company: company || (v[carNo]&&v[carNo].company) || "",
+        driver:  driver  || (v[carNo]&&v[carNo].driver)  || "",
+      });
+      jset(K.vehicles, v);
+    },
+
+    // ---- 공정 이름 누적 ----
+    async loadProcesses(){
+      return CONFIG.PROCESSES.concat(jget(K.processes, []));
+    },
+    async addProcess(name){
+      if(!name) return;
+      const all = CONFIG.PROCESSES.concat(jget(K.processes, []));
+      if(all.includes(name)) return;
+      const extra = jget(K.processes, []); extra.push(name); jset(K.processes, extra);
+    },
+
+    // ---- 인력 이름 자동완성 ----
+    async loadNames(){ return jget(K.names, []); },
+    async addName(name){
+      if(!name) return;
+      const arr = jget(K.names, []);
+      if(!arr.includes(name)){ arr.push(name); jset(K.names, arr); }
+    },
+  };
+})();
+</script>
+
+<!-- ========================================================================
+     사진 종류 분류 함수 (지금은 사람이 버튼으로 고른 값 그대로 사용)
+       나중에 자동분류(OCR/AI)로 바꿀 때 이 함수 하나만 교체하면 됨.
+     ======================================================================== -->
+<script>
+async function classifyPhoto(selectedType, ctx){
+  // ctx = { blob, dataURL } 등 나중에 자동분류에 필요할 정보 자리
+  return selectedType || "기타";
+}
+</script>
+
+<!-- ========================================================================
+     이미지 축소 유틸 (원본 1200px, 썸네일 160px)
+     ======================================================================== -->
+<script>
+function fileToImage(file){
+  return new Promise((res,rej)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{ URL.revokeObjectURL(url); res(img); };
+    img.onerror = (e)=>{ URL.revokeObjectURL(url); rej(e); };
+    img.src = url;
+  });
+}
+function drawScaled(img, maxPx, quality){
+  let {width:w, height:h} = img;
+  const scale = Math.min(1, maxPx/Math.max(w,h));
+  w = Math.round(w*scale); h = Math.round(h*scale);
+  const c = document.createElement("canvas");
+  c.width=w; c.height=h;
+  c.getContext("2d").drawImage(img,0,0,w,h);
+  return c;
+}
+function canvasToBlob(canvas, quality){
+  return new Promise((res)=> canvas.toBlob(b=>res(b), "image/jpeg", quality));
+}
+// 원본 blob + 썸네일 dataURL 반환
+async function processPhoto(file){
+  const img = await fileToImage(file);
+  const big = drawScaled(img, CONFIG.PHOTO_MAX_PX, 0.7);
+  const blob = await canvasToBlob(big, 0.7);
+  const th  = drawScaled(img, CONFIG.THUMB_MAX_PX, 0.6);
+  const thumb = th.toDataURL("image/jpeg", 0.55);
+  return { blob, thumb };
+}
+</script>
+
+<!-- ========================================================================
+     화면(UI) 코드 — Store.* 만 사용. 서버 붙여도 여기는 안 고침.
+     ======================================================================== -->
+<div id="app"></div>
+
+<script>
+// ---------- 공통 상태 ----------
+const APP = {
+  mode: "worker",        // "worker" | "admin"
+  siteId: null,          // 현장 토큰
+  siteName: null,        // 현장 이름
+  today: todayStr(),
+  tab: "day",            // worker: day | evening
+  rec: null,             // 오늘 dayRecord(작업 중)
+  photoType: null,       // 낮 화면에서 선택한 사진 종류
+  admin: { siteName:null, date:null }, // 관리자 드릴다운 상태
+};
+
+function todayStr(d){
+  d = d||new Date();
+  const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function won(n){ return (Number(n)||0).toLocaleString("ko-KR"); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function el(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstChild; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function newDayRecord(site, date){
+  return {
+    site, date,
+    weather: null,
+    processes: [],        // [{name, loc}]
+    note: "",
+    items: [],            // 통합 리스트: {id, kind:"인력"|"장비"|"자재", ...필드, amount}
+    photos: [],           // [{id, type, time, thumb}]  (원본은 IndexedDB)
+    signature: null,      // dataURL
+    locked: false,
+  };
+}
+
+// ---------- 진입점 ----------
+async function boot(){
+  const q = new URLSearchParams(location.search);
+  const admin = q.get("admin");
+  if(admin && admin === CONFIG.ADMIN_TOKEN){
+    APP.mode="admin";
+    renderAdmin();
+    return;
+  }
+  const s = q.get("s");
+  if(s && CONFIG.SITE_LINKS[s]){
+    APP.mode="worker"; APP.siteId=s; APP.siteName=CONFIG.SITE_LINKS[s];
+    APP.rec = await Store.loadDay(APP.siteName, APP.today) || newDayRecord(APP.siteName, APP.today);
+    APP.photoType = CONFIG.PHOTO_TYPES[0];
+    renderWorker();
+    return;
+  }
+  renderInvalid();
+}
+
+function renderInvalid(){
+  document.getElementById("app").innerHTML = `
+    <header class="top"><span>현장 기록</span></header>
+    <div class="wrap">
+      <div class="card">
+        <div class="sec-title">링크가 올바르지 않습니다</div>
+        <div class="muted">현장 담당자에게 받은 링크로 다시 열어 주세요.</div>
+      </div>
+    </div>`;
+}
+
+// ================= 작업자 화면 =================
+function renderWorker(){
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <header class="top">
+      <span>${esc(APP.siteName)}</span>
+      <span class="date">${APP.today}</span>
+    </header>
+    <div class="wrap" id="screen"></div>
+    <div class="tabbar">
+      <button id="tab-day" class="${APP.tab==='day'?'on':''}">📷 사진</button>
+      <button id="tab-eve" class="${APP.tab==='evening'?'on':''}">📝 저녁 정리</button>
+    </div>`;
+  app.querySelector("#tab-day").onclick=()=>{ APP.tab="day"; renderWorker(); };
+  app.querySelector("#tab-eve").onclick=()=>{ APP.tab="evening"; renderWorker(); };
+  if(APP.tab==="day") renderDay();
+  else renderEvening();
+}
+
+// ---------- 낮 화면 ----------
+function renderDay(){
+  const s = document.getElementById("screen");
+  s.innerHTML = "";
+
+  // 사진 종류 선택 (찍기 전에)
+  const typeCard = el(`<div class="card">
+    <div class="sec-title">1. 사진 종류를 고르세요</div>
+    <div class="grid4" id="ptypes"></div>
+  </div>`);
+  CONFIG.PHOTO_TYPES.forEach(t=>{
+    const b = el(`<button class="btn ${APP.photoType===t?'sel':'pick'}">${esc(t)}</button>`);
+    b.onclick=()=>{ APP.photoType=t; renderDay(); };
+    typeCard.querySelector("#ptypes").appendChild(b);
+  });
+  s.appendChild(typeCard);
+
+  // 사진 찍기 큰 버튼
+  const shot = el(`<div class="card">
+    <button class="btn brand huge" id="shoot">📷 사진 찍기<br><small style="font-size:16px;font-weight:600">(${esc(APP.photoType||'')})</small></button>
+    <input type="file" accept="image/*" capture="environment" id="cam" style="display:none">
+    <div class="hint">누르면 바로 저장됩니다. 확인 팝업 없음.</div>
+  </div>`);
+  s.appendChild(shot);
+  const cam = shot.querySelector("#cam");
+  shot.querySelector("#shoot").onclick=()=> cam.click();
+  cam.onchange = async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    e.target.value=""; // 같은 사진 다시 찍기 가능
+    if(!file) return;
+    await handleShot(file);
+  };
+
+  // 오늘 찍은 사진 (최신순)
+  const listCard = el(`<div class="card">
+    <div class="sec-title">오늘 찍은 사진 (${APP.rec.photos.length})</div>
+    <div class="thumbs" id="thumbs"></div>
+  </div>`);
+  const tw = listCard.querySelector("#thumbs");
+  if(APP.rec.photos.length===0){
+    tw.replaceWith(el(`<div class="muted">아직 없습니다.</div>`));
+  }else{
+    APP.rec.photos.slice().reverse().forEach(p=>{
+      tw.appendChild(el(`<div class="thumb">
+        <img src="${p.thumb}" alt="">
+        <div class="tag"><span>${esc(p.type)}</span><span>${esc(p.time)}</span></div>
+      </div>`));
+    });
+  }
+  s.appendChild(listCard);
+}
+
+async function handleShot(file){
+  const shootBtn = document.getElementById("shoot");
+  if(shootBtn){ shootBtn.disabled=true; shootBtn.style.opacity=.6; }
+  try{
+    let processed;
+    try{ processed = await processPhoto(file); }
+    catch(err){ alert("사진 처리 실패. 다시 찍어 주세요."); return; }
+
+    const id = "p_"+uid();
+    const type = await classifyPhoto(APP.photoType, {blob:processed.blob});
+    const time = new Date().toTimeString().slice(0,5);
+
+    // 원본은 IndexedDB — 실패해도 그날 기록 전체가 날아가지 않게 방어
+    const okPhoto = await Store.savePhoto(id, processed.blob);
+    if(!okPhoto){
+      alert("저장 공간이 부족해 이 사진은 건너뜁니다.\n갤러리/캐시를 정리해 주세요.");
+      return;
+    }
+    // 메타(썸네일 포함)만 dayRecord 에 추가
+    APP.rec.photos.push({ id, type, time, thumb: processed.thumb });
+    const okDay = await Store.saveDay(APP.rec);
+    if(!okDay){
+      // 텍스트 저장 실패 시 방금 넣은 메타는 되돌림 (기록 정합성 유지)
+      APP.rec.photos.pop();
+      alert("저장 공간이 부족합니다. 이 사진 기록만 건너뜁니다.");
+    }
+    renderDay();
+  } finally {
+    if(shootBtn){ shootBtn.disabled=false; shootBtn.style.opacity=1; }
+  }
+}
+
+// ---------- 저녁 화면 ----------
+async function renderEvening(){
+  const s = document.getElementById("screen");
+  s.innerHTML = `<div class="muted">불러오는 중…</div>`;
+  const processes = await Store.loadProcesses();
+  const names = await Store.loadNames();
+  const vehicles = await Store.loadVehicles();
+  const locked = APP.rec.locked;
+
+  s.innerHTML = "";
+
+  if(locked){
+    s.appendChild(el(`<div class="locked-note">🔒 오늘 기록이 서명 완료되어 잠겨 있습니다. 수정하려면 아래 [수정하기]를 누르세요.</div>`));
+  }
+
+  // 0) 오늘 공정
+  const cP = el(`<div class="card"><div class="sec-title">① 오늘 공정</div></div>`);
+  // 날씨
+  cP.appendChild(el(`<label class="fld">날씨</label>`));
+  const wRow = el(`<div class="grid4"></div>`);
+  CONFIG.WEATHER.forEach(w=>{
+    const b=el(`<button class="btn ${APP.rec.weather===w?'sel':'pick'}">${esc(w)}</button>`);
+    b.disabled=locked;
+    b.onclick=async ()=>{ APP.rec.weather=w; await save(); renderEvening(); };
+    wRow.appendChild(b);
+  });
+  cP.appendChild(wRow);
+  // 공정 버튼
+  cP.appendChild(el(`<label class="fld">공정 (여러 개 선택)</label>`));
+  const pWrap = el(`<div class="grid2" id="pwrap"></div>`);
+  processes.forEach(name=>{
+    const on = APP.rec.processes.some(p=>p.name===name);
+    const b=el(`<button class="btn ${on?'sel':'pick'}">${esc(name)}</button>`);
+    b.disabled=locked;
+    b.onclick=async ()=>{
+      const i = APP.rec.processes.findIndex(p=>p.name===name);
+      if(i>=0) APP.rec.processes.splice(i,1);
+      else APP.rec.processes.push({name, loc:""});
+      await save(); renderEvening();
+    };
+    pWrap.appendChild(b);
+  });
+  cP.appendChild(pWrap);
+  // 직접추가
+  if(!locked){
+    const addP = el(`<button class="btn ghost" style="margin-top:10px">+ 직접추가</button>`);
+    addP.onclick=async ()=>{
+      const name = prompt("추가할 공정 이름");
+      if(name && name.trim()){
+        await Store.addProcess(name.trim());
+        if(!APP.rec.processes.some(p=>p.name===name.trim())) APP.rec.processes.push({name:name.trim(), loc:""});
+        await save(); renderEvening();
+      }
+    };
+    cP.appendChild(addP);
+  }
+  // 고른 공정별 위치/구간
+  if(APP.rec.processes.length){
+    const locBox = el(`<div style="margin-top:12px"></div>`);
+    APP.rec.processes.forEach(p=>{
+      locBox.appendChild(el(`<label class="fld">${esc(p.name)} — 위치/구간</label>`));
+      const inp = el(`<input type="text" placeholder="예) 3구간, 도로 북측" value="${esc(p.loc)}">`);
+      inp.disabled=locked;
+      inp.oninput=(e)=>{ p.loc=e.target.value; };
+      inp.onchange=save;
+      locBox.appendChild(inp);
+    });
+    cP.appendChild(locBox);
+  }
+  // 특이사항
+  cP.appendChild(el(`<label class="fld">특이사항 (없으면 비워두세요)</label>`));
+  const note = el(`<input type="text" value="${esc(APP.rec.note)}" placeholder="한 줄">`);
+  note.disabled=locked;
+  note.oninput=(e)=>{ APP.rec.note=e.target.value; };
+  note.onchange=save;
+  cP.appendChild(note);
+  s.appendChild(cP);
+
+  // 1) 인력
+  const cL = el(`<div class="card"><div class="sec-title">② 인력</div></div>`);
+  const laborItems = APP.rec.items.filter(it=>it.kind==="인력");
+  const dl = el(`<datalist id="namelist"></datalist>`);
+  names.forEach(n=> dl.appendChild(el(`<option value="${esc(n)}">`)));
+  cL.appendChild(dl);
+  const lWrap = el(`<div id="lwrap"></div>`);
+  laborItems.forEach(it=> lWrap.appendChild(laborRow(it, locked)));
+  cL.appendChild(lWrap);
+  if(!locked){
+    const addL = el(`<button class="btn ghost" style="margin-top:6px">+ 인력 추가</button>`);
+    addL.onclick=async ()=>{
+      APP.rec.items.push({ id:uid(), kind:"인력", name:"", wage:CONFIG.WAGES[1], gongsu:1.0, amount:CONFIG.WAGES[1]*1.0, manual:false });
+      await save(); renderEvening();
+    };
+    cL.appendChild(addL);
+  }
+  const total = laborItems.reduce((s,it)=> s+(Number(it.amount)||0), 0);
+  cL.appendChild(el(`<div class="total">오늘 인력 합계<br>${won(total)} 원</div>`));
+  s.appendChild(cL);
+
+  // 2) 반입 기록
+  const cIn = el(`<div class="card"><div class="sec-title">③ 반입 기록</div></div>`);
+  cIn.appendChild(el(`<div class="muted" style="margin-bottom:8px">버튼을 누르면 줄이 추가됩니다.</div>`));
+  const addRow = el(`<div class="grid4"></div>`);
+  [["레미콘","장비"],["덤프","장비"],["포크레인","장비"],["기타","장비"]].forEach(([t,k])=>{
+    const b=el(`<button class="btn pick">${esc(t)}</button>`);
+    b.disabled=locked;
+    b.onclick=async ()=>{
+      APP.rec.items.push(newInItem(t));
+      await save(); renderEvening();
+    };
+    addRow.appendChild(b);
+  });
+  cIn.appendChild(addRow);
+  const inWrap = el(`<div id="inwrap" style="margin-top:10px"></div>`);
+  const inItems = APP.rec.items.filter(it=>it.kind==="장비" || it.kind==="자재");
+  const vList = el(`<datalist id="carlist"></datalist>`);
+  Object.keys(vehicles).forEach(no=> vList.appendChild(el(`<option value="${esc(no)}">`)));
+  cIn.appendChild(vList);
+  inItems.forEach(it=> inWrap.appendChild(inRow(it, vehicles, locked)));
+  cIn.appendChild(inWrap);
+  s.appendChild(cIn);
+
+  // 3) 사인
+  const cS = el(`<div class="card"><div class="sec-title">④ 사인</div></div>`);
+  if(APP.rec.signature){
+    cS.appendChild(el(`<div class="muted">서명 완료됨:</div>`));
+    cS.appendChild(el(`<img src="${APP.rec.signature}" style="max-width:220px;border:1px solid var(--line);border-radius:8px;background:#fff">`));
+  }
+  if(locked){
+    const edit = el(`<button class="btn brand" style="margin-top:12px">수정하기 (잠금 해제)</button>`);
+    edit.onclick=async ()=>{
+      if(confirm("잠금을 해제합니다. 저장하려면 다시 서명해야 합니다.")){
+        APP.rec.locked=false; APP.rec.signature=null;
+        await save(); renderEvening();
+      }
+    };
+    cS.appendChild(edit);
+  }else{
+    const signBtn = el(`<button class="btn brand huge" style="margin-top:8px">✍️ 사인하기</button>`);
+    signBtn.onclick=startSignFlow;
+    cS.appendChild(signBtn);
+    cS.appendChild(el(`<div class="hint">공정을 하나 이상 골라야 서명할 수 있습니다.</div>`));
+  }
+  s.appendChild(cS);
+}
+
+function laborRow(it, locked){
+  const box = el(`<div class="item"></div>`);
+  box.appendChild(el(`<div class="head"><span class="kind">인력</span></div>`));
+  // 이름
+  box.appendChild(el(`<label class="fld">이름</label>`));
+  const name = el(`<input type="text" list="namelist" value="${esc(it.name)}" placeholder="이름">`);
+  name.disabled=locked;
+  name.oninput=(e)=>{ it.name=e.target.value; };
+  name.onchange=async (e)=>{ await Store.addName(e.target.value.trim()); await save(); };
+  box.appendChild(name);
+  // 단가
+  box.appendChild(el(`<label class="fld">단가</label>`));
+  const wRow=el(`<div class="grid3"></div>`);
+  CONFIG.WAGES.forEach(w=>{
+    const b=el(`<button class="btn small ${Number(it.wage)===w?'sel':'pick'}" style="width:100%">${won(w)}</button>`);
+    b.disabled=locked;
+    b.onclick=async ()=>{ it.wage=w; recalc(it); await save(); renderEvening(); };
+    wRow.appendChild(b);
+  });
+  box.appendChild(wRow);
+  // 공수
+  box.appendChild(el(`<label class="fld">공수</label>`));
+  const gRow=el(`<div class="grid3"></div>`);
+  CONFIG.GONGSU.forEach(g=>{
+    const b=el(`<button class="btn small ${Number(it.gongsu)===g?'sel':'pick'}" style="width:100%">${g}</button>`);
+    b.disabled=locked;
+    b.onclick=async ()=>{ it.gongsu=g; recalc(it); await save(); renderEvening(); };
+    gRow.appendChild(b);
+  });
+  box.appendChild(gRow);
+  // 금액 (손으로 고치면 유지)
+  box.appendChild(el(`<label class="fld">금액 (자동계산, 직접 고칠 수 있음)</label>`));
+  const amt = el(`<input type="number" inputmode="numeric" value="${Number(it.amount)||0}">`);
+  amt.disabled=locked;
+  amt.oninput=(e)=>{ it.amount=Number(e.target.value)||0; it.manual=true; };
+  amt.onchange=async ()=>{ await save(); const t=document.querySelector(".total"); renderEvening(); };
+  box.appendChild(amt);
+  // 삭제
+  if(!locked){
+    const del=el(`<div style="text-align:right;margin-top:10px"><button class="btn del">삭제</button></div>`);
+    del.querySelector("button").onclick=async ()=>{
+      const i=APP.rec.items.indexOf(it); if(i>=0) APP.rec.items.splice(i,1);
+      await save(); renderEvening();
+    };
+    box.appendChild(del);
+  }
+  return box;
+}
+function recalc(it){
+  if(!it.manual) it.amount = Math.round((Number(it.wage)||0)*(Number(it.gongsu)||0));
+}
+
+function newInItem(type){
+  const base = { id:uid(), kind:"장비", equip:type, carNo:"", company:"", driver:"", memo:"", photoId:null, photoThumb:null, amount:"" };
+  if(type==="레미콘") return Object.assign(base, {count:"", pourLoc:""});
+  if(type==="덤프")   return Object.assign(base, {count:"", direction:""});
+  if(type==="포크레인")return Object.assign(base, {timeSlot:""});
+  return base; // 기타
+}
+
+function inRow(it, vehicles, locked){
+  const box = el(`<div class="item"></div>`);
+  box.appendChild(el(`<div class="head"><span class="kind">${esc(it.equip||it.kind)}</span></div>`));
+
+  // 차량번호 (필수 아님, 자동완성)
+  box.appendChild(el(`<label class="fld">차량번호 (선택)</label>`));
+  const car = el(`<input type="text" list="carlist" value="${esc(it.carNo)}" placeholder="비워도 됩니다">`);
+  car.disabled=locked;
+  car.oninput=(e)=>{ it.carNo=e.target.value; };
+  car.onchange=async (e)=>{
+    const no=e.target.value.trim();
+    if(no && vehicles[no]){ // 고르면 업체/기사 자동 채움
+      it.company = vehicles[no].company || it.company;
+      it.driver  = vehicles[no].driver  || it.driver;
+    }
+    await save(); renderEvening();
+  };
+  box.appendChild(car);
+
+  const fld = (label, key, ph, isCompany)=>{
+    box.appendChild(el(`<label class="fld">${esc(label)}</label>`));
+    if(isCompany){
+      const row=el(`<div class="row" style="margin-bottom:6px"></div>`);
+      CONFIG.COMPANIES.forEach(c=>{
+        const b=el(`<button class="btn small ${it[key]===c?'sel':'pick'}">${esc(c)}</button>`);
+        b.disabled=locked;
+        b.onclick=async ()=>{ it[key]=c; await save(); renderEvening(); };
+        row.appendChild(b);
+      });
+      box.appendChild(row);
+    }
+    const inp=el(`<input type="text" value="${esc(it[key]||"")}" placeholder="${esc(ph||"")}">`);
+    inp.disabled=locked;
+    inp.oninput=(e)=>{ it[key]=e.target.value; };
+    inp.onchange=save;
+    box.appendChild(inp);
+  };
+
+  if(it.equip==="레미콘"){
+    fld("업체","company","", true);
+    fld("몇 대","count","예) 5");
+    fld("타설위치","pourLoc","예) 지하 1층");
+  }else if(it.equip==="덤프"){
+    fld("업체","company","", true);
+    fld("몇 회","count","예) 3");
+    fld("반출/반입","direction","예) 반출");
+  }else if(it.equip==="포크레인"){
+    fld("기사이름","driver","");
+    fld("시간대","timeSlot","예) 오전");
+  }else{ // 기타
+    fld("내용","memo","자유 입력");
+  }
+
+  // 번호판/현장 사진 첨부
+  box.appendChild(el(`<label class="fld">사진 첨부 (선택)</label>`));
+  if(it.photoThumb){
+    box.appendChild(el(`<img src="${it.photoThumb}" style="height:110px;border-radius:8px;border:1px solid var(--line)">`));
+  }
+  if(!locked){
+    const wrap=el(`<div><button class="btn ghost small" style="width:auto;margin-top:6px">📷 사진 첨부</button><input type="file" accept="image/*" capture="environment" style="display:none"></div>`);
+    const inp=wrap.querySelector("input"); const b=wrap.querySelector("button");
+    b.onclick=()=>inp.click();
+    inp.onchange=async (e)=>{
+      const f=e.target.files&&e.target.files[0]; e.target.value="";
+      if(!f) return;
+      try{
+        const {blob, thumb}=await processPhoto(f);
+        const id="p_"+uid();
+        const ok=await Store.savePhoto(id, blob);
+        if(!ok){ alert("저장 공간 부족으로 이 사진은 건너뜁니다."); return; }
+        it.photoId=id; it.photoThumb=thumb;
+        await save(); renderEvening();
+      }catch(err){ alert("사진 처리 실패"); }
+    };
+    box.appendChild(wrap);
+  }
+
+  // 삭제
+  if(!locked){
+    const del=el(`<div style="text-align:right;margin-top:10px"><button class="btn del">삭제</button></div>`);
+    del.querySelector("button").onclick=async ()=>{
+      const i=APP.rec.items.indexOf(it); if(i>=0) APP.rec.items.splice(i,1);
+      await save(); renderEvening();
+    };
+    box.appendChild(del);
+  }
+  // 차량번호 입력돼 있으면 업체/기사와 연결 저장
+  if(it.carNo){ Store.saveVehicle(it.carNo, it.company, it.driver); }
+  return box;
+}
+
+async function save(){
+  const ok = await Store.saveDay(APP.rec);
+  if(!ok){
+    showBannerOnce("⚠️ 저장 공간이 부족합니다. 사진/캐시를 정리해 주세요. (이 항목은 저장되지 않았을 수 있습니다)");
+  }
+}
+let _bannerShown=false;
+function showBannerOnce(msg){
+  if(_bannerShown) return; _bannerShown=true;
+  const b=el(`<div class="banner">${esc(msg)}</div>`);
+  const scr=document.getElementById("screen"); if(scr) scr.prepend(b);
+  setTimeout(()=>{ _bannerShown=false; }, 4000);
+}
+
+// ---------- 사인 흐름 ----------
+function startSignFlow(){
+  // 공정 안 골랐으면 막기
+  if(APP.rec.processes.length===0){
+    alert("공정을 하나 이상 선택해야 서명할 수 있습니다.");
+    return;
+  }
+  // 팝업: 장비·자재 있습니까?
+  showModal(`
+    <h3>오늘 들어온 장비·자재 있습니까?</h3>
+    <div class="muted" style="margin-bottom:14px">반입 기록에 빠진 게 있으면 추가하세요.</div>
+    <div class="grid2">
+      <button class="btn pick" id="m-add">추가</button>
+      <button class="btn brand" id="m-none">없음</button>
+    </div>
+  `, (root, close)=>{
+    root.querySelector("#m-add").onclick=()=>{ close(); document.querySelector("#screen").scrollTo?.(0,0); /* 반입 카드로 유도 */ alert("반입 기록에 추가한 뒤 다시 [사인하기]를 눌러 주세요."); };
+    root.querySelector("#m-none").onclick=()=>{ close(); showSignPad(); };
+  });
+}
+
+function showSignPad(){
+  showModal(`
+    <h3>서명</h3>
+    <canvas id="sigpad"></canvas>
+    <div class="row" style="margin-top:12px">
+      <button class="btn small ghost" id="sig-clear">지우기</button>
+      <button class="btn small" id="sig-cancel">취소</button>
+      <button class="btn small brand" id="sig-ok">완료</button>
+    </div>
+  `, (root, close)=>{
+    const cv = root.querySelector("#sigpad");
+    const ctx = cv.getContext("2d");
+    // 캔버스 실제 픽셀 크기 맞추기
+    const rect = cv.getBoundingClientRect();
+    cv.width = rect.width; cv.height = 220;
+    ctx.lineWidth=3; ctx.lineCap="round"; ctx.strokeStyle="#111";
+    let drawing=false, has=false;
+    const pos=(e)=>{ const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+    const down=(e)=>{ e.preventDefault(); drawing=true; has=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+    const move=(e)=>{ if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+    const up=()=>{ drawing=false; };
+    cv.addEventListener("pointerdown",down); cv.addEventListener("pointermove",move);
+    window.addEventListener("pointerup",up);
+    root.querySelector("#sig-clear").onclick=()=>{ ctx.clearRect(0,0,cv.width,cv.height); has=false; };
+    root.querySelector("#sig-cancel").onclick=()=> close();
+    root.querySelector("#sig-ok").onclick=async ()=>{
+      if(!has){ alert("서명을 해 주세요."); return; }
+      APP.rec.signature = cv.toDataURL("image/png");
+      APP.rec.locked = true;
+      const ok = await Store.saveDay(APP.rec);
+      if(!ok){ alert("저장 공간 부족으로 저장에 실패했습니다."); APP.rec.locked=false; APP.rec.signature=null; return; }
+      close(); renderEvening();
+    };
+  });
+}
+
+// ---------- 공용 모달 ----------
+function showModal(html, setup){
+  const bg = el(`<div class="modal-bg"><div class="modal">${html}</div></div>`);
+  document.body.appendChild(bg);
+  const close=()=> bg.remove();
+  bg.addEventListener("click",(e)=>{ if(e.target===bg) close(); });
+  setup && setup(bg.querySelector(".modal"), close);
+}
+
+// ================= 관리자 화면 =================
+async function renderAdmin(){
+  const app=document.getElementById("app");
+  if(APP.admin.date){ return renderAdminDetail(); }
+  if(APP.admin.siteName){ return renderAdminDates(); }
+
+  app.innerHTML=`
+    <header class="top"><span>관리자 · 오늘 현황</span><span class="date">${APP.today}</span></header>
+    <div class="wrap" id="screen"><div class="muted">불러오는 중…</div></div>`;
+  const s=app.querySelector("#screen"); s.innerHTML="";
+
+  for(const siteName of Object.values(CONFIG.SITE_LINKS)){
+    const rec = await Store.loadDay(siteName, APP.today);
+    const labor = rec ? rec.items.filter(i=>i.kind==="인력") : [];
+    const equip = rec ? rec.items.filter(i=>i.kind==="장비"||i.kind==="자재") : [];
+    const total = labor.reduce((a,i)=>a+(Number(i.amount)||0),0);
+    const procs = rec && rec.processes.length ? rec.processes.map(p=>p.name).join(", ") : "-";
+    const signed = rec && rec.signature;
+
+    const card=el(`<div class="card site-card">
+      <div class="row" style="justify-content:space-between">
+        <span class="name">${esc(siteName)}</span>
+        <span class="badge ${signed?'ok':'no'}">${signed?'사인 됨':'사인 안 됨'}</span>
+      </div>
+      <div style="margin-top:8px">
+        <div class="kv"><span>오늘 공정</span><span>${esc(procs)}</span></div>
+        <div class="kv"><span>인원 수</span><span>${labor.length} 명</span></div>
+        <div class="kv"><span>장비 수</span><span>${equip.length} 대</span></div>
+        <div class="kv"><span>오늘 합계</span><span>${won(total)} 원</span></div>
+      </div>
+    </div>`);
+    card.onclick=()=>{ APP.admin.siteName=siteName; renderAdmin(); };
+    s.appendChild(card);
+  }
+}
+
+async function renderAdminDates(){
+  const app=document.getElementById("app");
+  app.innerHTML=`
+    <header class="top"><span>${esc(APP.admin.siteName)}</span></header>
+    <div class="wrap" id="screen"></div>`;
+  const s=app.querySelector("#screen");
+  const back=el(`<button class="btn ghost" style="margin-bottom:12px">← 현장 목록</button>`);
+  back.onclick=()=>{ APP.admin.siteName=null; renderAdmin(); };
+  s.appendChild(back);
+
+  const dates = await Store.listDates(APP.admin.siteName);
+  if(!dates.length){ s.appendChild(el(`<div class="card muted">기록이 없습니다.</div>`)); return; }
+  for(const d of dates){
+    const rec = await Store.loadDay(APP.admin.siteName, d);
+    const signed = rec && rec.signature;
+    const card=el(`<div class="card site-card">
+      <div class="row" style="justify-content:space-between">
+        <span class="name" style="font-size:20px">${esc(d)}</span>
+        <span class="badge ${signed?'ok':'no'}">${signed?'사인 됨':'사인 안 됨'}</span>
+      </div>
+      <div class="muted" style="margin-top:6px">${esc(rec&&rec.processes.length?rec.processes.map(p=>p.name).join(", "):"-")}</div>
+    </div>`);
+    card.onclick=()=>{ APP.admin.date=d; renderAdmin(); };
+    s.appendChild(card);
+  }
+}
+
+async function renderAdminDetail(){
+  const app=document.getElementById("app");
+  const rec = await Store.loadDay(APP.admin.siteName, APP.admin.date);
+  app.innerHTML=`
+    <header class="top"><span>${esc(APP.admin.siteName)}</span><span class="date">${esc(APP.admin.date)}</span></header>
+    <div class="wrap" id="screen"></div>`;
+  const s=app.querySelector("#screen");
+  const back=el(`<button class="btn ghost" style="margin-bottom:12px">← 날짜 목록</button>`);
+  back.onclick=()=>{ APP.admin.date=null; renderAdmin(); };
+  s.appendChild(back);
+
+  if(!rec){ s.appendChild(el(`<div class="card muted">기록 없음</div>`)); return; }
+
+  const labor=rec.items.filter(i=>i.kind==="인력");
+  const equip=rec.items.filter(i=>i.kind==="장비"||i.kind==="자재");
+  const total=labor.reduce((a,i)=>a+(Number(i.amount)||0),0);
+
+  // 공정
+  s.appendChild(el(`<div class="card">
+    <div class="sec-title">공정 · 날씨</div>
+    <div class="kv"><span>날씨</span><span>${esc(rec.weather||"-")}</span></div>
+    ${rec.processes.map(p=>`<div class="kv"><span>${esc(p.name)}</span><span>${esc(p.loc||"-")}</span></div>`).join("")}
+    <div class="kv"><span>특이사항</span><span>${esc(rec.note||"-")}</span></div>
+  </div>`));
+
+  // 인력
+  s.appendChild(el(`<div class="card">
+    <div class="sec-title">인력 (${labor.length}명)</div>
+    ${labor.map(i=>`<div class="kv"><span>${esc(i.name||"-")} · ${i.gongsu}공수</span><span>${won(i.amount)} 원</span></div>`).join("") || '<div class="muted">없음</div>'}
+    <div class="total">합계 ${won(total)} 원</div>
+  </div>`));
+
+  // 반입
+  s.appendChild(el(`<div class="card">
+    <div class="sec-title">반입 (${equip.length}건)</div>
+    ${equip.map(i=>{
+      const parts=[i.equip, i.carNo, i.company, i.driver, i.count, i.pourLoc, i.direction, i.timeSlot, i.memo].filter(Boolean);
+      return `<div class="kv"><span>${esc(parts.join(" · "))}</span><span>${i.photoThumb?'📷':''}</span></div>`;
+    }).join("") || '<div class="muted">없음</div>'}
+  </div>`));
+
+  // 사진
+  const photoCard=el(`<div class="card"><div class="sec-title">사진 (${rec.photos.length})</div><div class="thumbs"></div></div>`);
+  const tw=photoCard.querySelector(".thumbs");
+  rec.photos.slice().reverse().forEach(p=>{
+    tw.appendChild(el(`<div class="thumb"><img src="${p.thumb}"><div class="tag"><span>${esc(p.type)}</span><span>${esc(p.time)}</span></div></div>`));
+  });
+  if(!rec.photos.length) tw.replaceWith(el(`<div class="muted">없음</div>`));
+  s.appendChild(photoCard);
+
+  // 서명
+  s.appendChild(el(`<div class="card">
+    <div class="sec-title">서명</div>
+    ${rec.signature?`<img src="${rec.signature}" style="max-width:220px;border:1px solid var(--line);border-radius:8px;background:#fff">`:'<div class="badge no">사인 안 됨</div>'}
+  </div>`));
+}
+
+// ---------- 시작 ----------
+boot();
+</script>
+</body>
+</html>
