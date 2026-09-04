@@ -734,6 +734,49 @@ function openPicker(cfg){
   });
 }
 
+// 공정 고르기 팝업 (공구/자재와 같은 방식). 공정은 APP.rec.processes 에 저장
+function openProcessPicker(){
+  showModal(`
+    <h3>공정 고르기</h3>
+    <input type="text" id="pk-input" placeholder="찾기 / 없으면 여기에 입력">
+    <div class="row" style="margin:8px 0"><button class="btn small brand" id="pk-add" style="width:100%">+ 새로 만들어 추가</button></div>
+    <div class="muted" style="margin:6px 0 4px">아래에서 찾아 누르세요 (누르면 추가, 다시 누르면 취소)</div>
+    <div id="pk-list" style="max-height:46vh;overflow:auto"></div>
+    <div class="row" style="margin-top:12px"><button class="btn small" id="pk-close" style="width:100%">닫기</button></div>
+  `, async (root, close)=>{
+    let presets = await Store.loadProcesses();
+    const input = root.querySelector("#pk-input");
+    const listBox = root.querySelector("#pk-list");
+    const isAdded = (name)=> APP.rec.processes.some(p=>p.name===name);
+    async function toggle(name){
+      const i = APP.rec.processes.findIndex(p=>p.name===name);
+      if(i>=0) APP.rec.processes.splice(i,1);
+      else APP.rec.processes.push({ name, loc:"" });
+      await save();
+    }
+    function renderList(){
+      const f=(input.value||"").trim(); listBox.innerHTML="";
+      const matches = presets.filter(n=> !f || n.includes(f));
+      matches.forEach(name=>{
+        const on=isAdded(name);
+        const b=el(`<button class="btn ${on?'sel':'pick'}" style="justify-content:space-between;margin-bottom:8px"><span>${esc(name)}</span><span>${on?'✅':''}</span></button>`);
+        b.onclick=async ()=>{ await toggle(name); renderList(); };
+        listBox.appendChild(b);
+      });
+      if(!matches.length) listBox.appendChild(el(`<div class="muted">목록에 없습니다. 위 [+ 새로 만들어 추가]를 누르세요.</div>`));
+    }
+    input.oninput=renderList;
+    root.querySelector("#pk-add").onclick=async ()=>{
+      const name=input.value.trim(); if(!name){ input.focus(); return; }
+      await Store.addProcess(name); presets = await Store.loadProcesses();
+      if(!isAdded(name)) await toggle(name);
+      input.value=""; renderList();
+    };
+    root.querySelector("#pk-close").onclick=()=>{ close(); renderEvening(); };
+    renderList();
+  });
+}
+
 // 산·추가한 공구/자재 한 줄 (kind 로 구분)
 function purchasedRow(it, locked, rerender){
   const isTool = it.kind==="공구";
@@ -932,47 +975,37 @@ async function renderEvening(){
     wRow.appendChild(b);
   });
   cP.appendChild(wRow);
-  // 공정 버튼
-  cP.appendChild(el(`<label class="fld">공정 (여러 개 선택)</label>`));
-  const pWrap = el(`<div class="grid2" id="pwrap"></div>`);
-  processes.forEach(name=>{
-    const on = APP.rec.processes.some(p=>p.name===name);
-    const b=el(`<button class="btn ${on?'sel':'pick'}">${esc(name)}</button>`);
-    b.disabled=locked;
-    b.onclick=async ()=>{
-      const i = APP.rec.processes.findIndex(p=>p.name===name);
-      if(i>=0) APP.rec.processes.splice(i,1);
-      else APP.rec.processes.push({name, loc:""});
-      await save(); renderEvening();
-    };
-    pWrap.appendChild(b);
-  });
-  cP.appendChild(pWrap);
-  // 직접추가
-  if(!locked){
-    const addP = el(`<button class="btn ghost" style="margin-top:10px">+ 직접추가</button>`);
-    addP.onclick=async ()=>{
-      const name = prompt("추가할 공정 이름");
-      if(name && name.trim()){
-        await Store.addProcess(name.trim());
-        if(!APP.rec.processes.some(p=>p.name===name.trim())) APP.rec.processes.push({name:name.trim(), loc:""});
-        await save(); renderEvening();
-      }
-    };
-    cP.appendChild(addP);
-  }
-  // 고른 공정별 위치/구간
+  // 공정 — 고른 것만 표시(이름 수정·삭제 + 위치/구간), [+ 공정 고르기] 팝업
+  cP.appendChild(el(`<label class="fld">공정</label>`));
   if(APP.rec.processes.length){
-    const locBox = el(`<div style="margin-top:12px"></div>`);
+    const list = el(`<div></div>`);
     APP.rec.processes.forEach(p=>{
-      locBox.appendChild(el(`<label class="fld">${esc(p.name)} — 위치/구간</label>`));
-      const inp = el(`<input type="text" placeholder="예) 3구간, 도로 북측" value="${esc(p.loc)}">`);
-      inp.disabled=locked;
-      inp.oninput=(e)=>{ p.loc=e.target.value; };
-      inp.onchange=save;
-      locBox.appendChild(inp);
+      const box = el(`<div class="item"></div>`);
+      const head = el(`<div class="row" style="justify-content:space-between;margin-bottom:6px"></div>`);
+      const nameBtn = el(`<button class="btn small ghost" style="width:auto;border:none;font-weight:800;text-align:left;padding:6px 2px">✏️ ${esc(p.name)}</button>`);
+      nameBtn.disabled=locked;
+      nameBtn.onclick=async ()=>{
+        const nv = prompt("공정 이름 수정", p.name);
+        if(nv!=null && nv.trim() && nv.trim()!==p.name){ p.name=nv.trim(); await Store.addProcess(p.name); await save(); renderEvening(); }
+      };
+      const del = el(`<button class="btn del">삭제</button>`);
+      del.disabled=locked;
+      del.onclick=async ()=>{ const i=APP.rec.processes.indexOf(p); if(i>=0)APP.rec.processes.splice(i,1); await save(); renderEvening(); };
+      head.appendChild(nameBtn); head.appendChild(del);
+      box.appendChild(head);
+      const inp = el(`<input type="text" placeholder="위치/구간 (예: 3구간, 도로 북측)" value="${esc(p.loc)}">`);
+      inp.disabled=locked; inp.oninput=(e)=>{ p.loc=e.target.value; }; inp.onchange=save;
+      box.appendChild(inp);
+      list.appendChild(box);
     });
-    cP.appendChild(locBox);
+    cP.appendChild(list);
+  }else{
+    cP.appendChild(el(`<div class="muted" style="margin-bottom:8px">아직 없습니다. 아래 [+ 공정 고르기]를 누르세요.</div>`));
+  }
+  if(!locked){
+    const pick = el(`<button class="btn brand" style="margin-bottom:4px">+ 공정 고르기</button>`);
+    pick.onclick = ()=> openProcessPicker();
+    cP.appendChild(pick);
   }
   // 특이사항
   cP.appendChild(el(`<label class="fld">특이사항 (없으면 비워두세요)</label>`));
