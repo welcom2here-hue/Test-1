@@ -168,7 +168,7 @@
      ======================================================================== -->
 <script>
 // 화면 오른쪽 위에 뜨는 버전 (새 버전이 반영됐는지 확인용). 수정할 때마다 올림.
-const APP_VERSION = "v10";
+const APP_VERSION = "v11";
 
 const CONFIG = {
   // 현장 링크 토큰 -> 현장 이름  (현장마다 다른 링크. 카톡으로 이 링크를 보낸다)
@@ -914,33 +914,29 @@ async function handleShot(file){
     const type = await classifyPhoto(APP.photoType, {blob:processed.blob});
     const time = new Date().toTimeString().slice(0,5);
 
-    // 원본은 IndexedDB — 실패해도 그날 기록 전체가 날아가지 않게 방어
+    // 사진 원본은 IndexedDB (실패해도 반입 줄은 계속 진행)
     const okPhoto = await Store.savePhoto(id, processed.blob);
-    if(!okPhoto){
-      alert("저장 공간이 부족해 이 사진은 건너뜁니다.\n갤러리/캐시를 정리해 주세요.");
-      return;
+    if(okPhoto){
+      APP.rec.photos.push({ id, type, time, thumb: processed.thumb });
     }
-    // 메타(썸네일 포함)만 dayRecord 에 추가
-    APP.rec.photos.push({ id, type, time, thumb: processed.thumb });
 
-    // 레미콘/덤프 사진이면 오후 반입기록에 줄도 자동 생성 (같은 사진 연결)
+    // 레미콘/덤프면 오후 반입기록에 줄 자동 생성 (사진 저장 실패해도 줄은 만든다)
     let intake = null;
     if(type==="레미콘" || type==="덤프"){
       intake = newInItem(type);
       intake.fromInvoice = true;
-      intake.photoId = id; intake.photoThumb = processed.thumb;
+      if(okPhoto){ intake.photoId = id; intake.photoThumb = processed.thumb; }
       try{ Object.assign(intake, await parseInvoice(type, {blob:processed.blob, thumb:processed.thumb})); }catch(e){}
       APP.rec.items.push(intake);
     }
 
-    const okDay = await Store.saveDay(APP.rec);
-    if(!okDay){
-      // 텍스트 저장 실패 시 방금 넣은 것 되돌림 (기록 정합성 유지)
-      APP.rec.photos.pop();
-      if(intake){ const i=APP.rec.items.indexOf(intake); if(i>=0) APP.rec.items.splice(i,1); }
-      alert("저장 공간이 부족합니다. 이 사진 기록만 건너뜁니다.");
+    await Store.saveDay(APP.rec);
+    if(!okPhoto && intake){
+      alert("사진 저장 공간이 부족해 사진은 못 넣었지만, 오후 [반입기록]에 "+type+" 줄은 만들었습니다.");
+    } else if(!okPhoto){
+      alert("저장 공간이 부족해 이 사진은 건너뜁니다.\n갤러리/캐시를 정리해 주세요.");
     } else if(intake){
-      alert(type+" 사진을 오후 [반입기록]에도 자동으로 넣었습니다.");
+      alert(type+" → 오후 [반입기록] 맨 위에 자동으로 넣었습니다. 오후에서 확인하세요.");
     }
     renderDay();
   } finally {
@@ -1023,7 +1019,13 @@ async function renderEvening(){
   cIn.appendChild(addRow);
   const inWrap = el(`<div id="inwrap" style="margin-top:10px"></div>`);
   // 반입 = 장비 + (추후) 반입 자재. 아침에 산 자재(source "구입")는 낮 화면 소관이라 제외.
-  const inItems = APP.rec.items.filter(it=>it.kind==="장비" || (it.kind==="자재" && it.source==="반입"));
+  let inItems = APP.rec.items.filter(it=>it.kind==="장비" || (it.kind==="자재" && it.source==="반입"));
+  // 오전 사진(송장)으로 자동 생성된 줄을 맨 위로
+  inItems = inItems.slice().sort((a,b)=> (b.fromInvoice?1:0) - (a.fromInvoice?1:0));
+  const autoCnt = inItems.filter(it=>it.fromInvoice).length;
+  if(autoCnt){
+    cIn.appendChild(el(`<div class="locked-note" style="background:#e3f0ff;border-color:#b8d4f5;color:#0b4a8f">📄 오전 사진으로 자동 생성된 반입 ${autoCnt}줄이 아래에 있습니다.</div>`));
+  }
   const vList = el(`<datalist id="carlist"></datalist>`);
   Object.keys(vehicles).forEach(no=> vList.appendChild(el(`<option value="${esc(no)}">`)));
   cIn.appendChild(vList);
