@@ -523,6 +523,11 @@ async function renderDay(){
     s.appendChild(el(`<div class="locked-note">🔒 오늘 기록이 서명 완료되어 잠겨 있습니다. [🌆 오후]에서 수정할 수 있습니다.</div>`));
   }
 
+  // 오늘 공정 (오전에도 입력 — 오후 공정과 같은 데이터)
+  const cProc = el(`<div class="card"><div class="sec-title">📋 오늘 공정</div></div>`);
+  appendProcessSection(cProc, locked, renderDay);
+  s.appendChild(cProc);
+
   // 사진 종류 선택 (찍기 전에)
   const typeCard = el(`<div class="card">
     <div class="sec-title">1. 사진 종류를 고르세요</div>
@@ -592,13 +597,22 @@ async function renderDay(){
     const box = el(`<div class="thumbs" style="margin-top:10px"></div>`);
     invItems.forEach(it=>{
       const car = it.carNo ? it.carNo : "(오후에서 입력)";
-      box.appendChild(el(`<div class="thumb">
+      const t = el(`<div class="thumb" style="cursor:pointer">
         ${it.photoThumb?`<img src="${it.photoThumb}">`:''}
         <div class="tag"><span>${esc(it.equip)}</span><span>${esc(car)}</span></div>
-      </div>`));
+      </div>`);
+      if(!locked){
+        t.onclick = async ()=>{
+          if(!confirm(it.equip+" 송장을 삭제할까요?\n(오후 반입기록의 줄도 함께 삭제됩니다)")) return;
+          const i=APP.rec.items.indexOf(it); if(i>=0) APP.rec.items.splice(i,1);
+          if(it.photoId) Store.deletePhoto(it.photoId);
+          await save(); renderDay();
+        };
+      }
+      box.appendChild(t);
     });
     cInv.appendChild(box);
-    cInv.appendChild(el(`<div class="hint">↳ 오후 [반입기록]에서 내용 수정·삭제할 수 있습니다.</div>`));
+    cInv.appendChild(el(`<div class="hint">↳ 내용 수정은 오후 [반입기록], 삭제는 사진을 누르세요.</div>`));
   }
   s.appendChild(cInv);
 
@@ -734,8 +748,43 @@ function openPicker(cfg){
   });
 }
 
+// 공정 목록 렌더 (오전·오후 공용). rerender = 다시 그릴 함수
+function appendProcessSection(card, locked, rerender){
+  card.appendChild(el(`<label class="fld">공정</label>`));
+  if(APP.rec.processes.length){
+    const list = el(`<div></div>`);
+    APP.rec.processes.forEach(p=>{
+      const box = el(`<div class="item"></div>`);
+      const head = el(`<div class="row" style="justify-content:space-between;margin-bottom:6px"></div>`);
+      const nameBtn = el(`<button class="btn small ghost" style="width:auto;border:none;font-weight:800;text-align:left;padding:6px 2px">✏️ ${esc(p.name)}</button>`);
+      nameBtn.disabled=locked;
+      nameBtn.onclick=async ()=>{
+        const nv = prompt("공정 이름 수정", p.name);
+        if(nv!=null && nv.trim() && nv.trim()!==p.name){ p.name=nv.trim(); await Store.addProcess(p.name); await save(); rerender && rerender(); }
+      };
+      const del = el(`<button class="btn del">삭제</button>`);
+      del.disabled=locked;
+      del.onclick=async ()=>{ const i=APP.rec.processes.indexOf(p); if(i>=0)APP.rec.processes.splice(i,1); await save(); rerender && rerender(); };
+      head.appendChild(nameBtn); head.appendChild(del);
+      box.appendChild(head);
+      const inp = el(`<input type="text" placeholder="위치/구간 (예: 3구간, 도로 북측)" value="${esc(p.loc)}">`);
+      inp.disabled=locked; inp.oninput=(e)=>{ p.loc=e.target.value; }; inp.onchange=save;
+      box.appendChild(inp);
+      list.appendChild(box);
+    });
+    card.appendChild(list);
+  }else{
+    card.appendChild(el(`<div class="muted" style="margin-bottom:8px">아직 없습니다. 아래 [+ 공정 고르기]를 누르세요.</div>`));
+  }
+  if(!locked){
+    const pick = el(`<button class="btn brand" style="margin-bottom:4px">+ 공정 고르기</button>`);
+    pick.onclick = ()=> openProcessPicker(rerender);
+    card.appendChild(pick);
+  }
+}
+
 // 공정 고르기 팝업 (공구/자재와 같은 방식). 공정은 APP.rec.processes 에 저장
-function openProcessPicker(){
+function openProcessPicker(rerender){
   showModal(`
     <h3>공정 고르기</h3>
     <input type="text" id="pk-input" placeholder="찾기 / 없으면 여기에 입력">
@@ -772,7 +821,7 @@ function openProcessPicker(){
       if(!isAdded(name)) await toggle(name);
       input.value=""; renderList();
     };
-    root.querySelector("#pk-close").onclick=()=>{ close(); renderEvening(); };
+    root.querySelector("#pk-close").onclick=()=>{ close(); (rerender||renderEvening)(); };
     renderList();
   });
 }
@@ -936,11 +985,25 @@ async function handleShot(file){
     }
     // 메타(썸네일 포함)만 dayRecord 에 추가
     APP.rec.photos.push({ id, type, time, thumb: processed.thumb });
+
+    // 레미콘/덤프 사진이면 오후 반입기록에 줄도 자동 생성 (같은 사진 연결)
+    let intake = null;
+    if(type==="레미콘" || type==="덤프"){
+      intake = newInItem(type);
+      intake.fromInvoice = true;
+      intake.photoId = id; intake.photoThumb = processed.thumb;
+      try{ Object.assign(intake, await parseInvoice(type, {blob:processed.blob, thumb:processed.thumb})); }catch(e){}
+      APP.rec.items.push(intake);
+    }
+
     const okDay = await Store.saveDay(APP.rec);
     if(!okDay){
-      // 텍스트 저장 실패 시 방금 넣은 메타는 되돌림 (기록 정합성 유지)
+      // 텍스트 저장 실패 시 방금 넣은 것 되돌림 (기록 정합성 유지)
       APP.rec.photos.pop();
+      if(intake){ const i=APP.rec.items.indexOf(intake); if(i>=0) APP.rec.items.splice(i,1); }
       alert("저장 공간이 부족합니다. 이 사진 기록만 건너뜁니다.");
+    } else if(intake){
+      alert(type+" 사진을 오후 [반입기록]에도 자동으로 넣었습니다.");
     }
     renderDay();
   } finally {
@@ -975,38 +1038,8 @@ async function renderEvening(){
     wRow.appendChild(b);
   });
   cP.appendChild(wRow);
-  // 공정 — 고른 것만 표시(이름 수정·삭제 + 위치/구간), [+ 공정 고르기] 팝업
-  cP.appendChild(el(`<label class="fld">공정</label>`));
-  if(APP.rec.processes.length){
-    const list = el(`<div></div>`);
-    APP.rec.processes.forEach(p=>{
-      const box = el(`<div class="item"></div>`);
-      const head = el(`<div class="row" style="justify-content:space-between;margin-bottom:6px"></div>`);
-      const nameBtn = el(`<button class="btn small ghost" style="width:auto;border:none;font-weight:800;text-align:left;padding:6px 2px">✏️ ${esc(p.name)}</button>`);
-      nameBtn.disabled=locked;
-      nameBtn.onclick=async ()=>{
-        const nv = prompt("공정 이름 수정", p.name);
-        if(nv!=null && nv.trim() && nv.trim()!==p.name){ p.name=nv.trim(); await Store.addProcess(p.name); await save(); renderEvening(); }
-      };
-      const del = el(`<button class="btn del">삭제</button>`);
-      del.disabled=locked;
-      del.onclick=async ()=>{ const i=APP.rec.processes.indexOf(p); if(i>=0)APP.rec.processes.splice(i,1); await save(); renderEvening(); };
-      head.appendChild(nameBtn); head.appendChild(del);
-      box.appendChild(head);
-      const inp = el(`<input type="text" placeholder="위치/구간 (예: 3구간, 도로 북측)" value="${esc(p.loc)}">`);
-      inp.disabled=locked; inp.oninput=(e)=>{ p.loc=e.target.value; }; inp.onchange=save;
-      box.appendChild(inp);
-      list.appendChild(box);
-    });
-    cP.appendChild(list);
-  }else{
-    cP.appendChild(el(`<div class="muted" style="margin-bottom:8px">아직 없습니다. 아래 [+ 공정 고르기]를 누르세요.</div>`));
-  }
-  if(!locked){
-    const pick = el(`<button class="btn brand" style="margin-bottom:4px">+ 공정 고르기</button>`);
-    pick.onclick = ()=> openProcessPicker();
-    cP.appendChild(pick);
-  }
+  // 공정 (오전·오후 공용)
+  appendProcessSection(cP, locked, renderEvening);
   // 특이사항
   cP.appendChild(el(`<label class="fld">특이사항 (없으면 비워두세요)</label>`));
   const note = el(`<input type="text" value="${esc(APP.rec.note)}" placeholder="한 줄">`);
