@@ -566,11 +566,11 @@ async function renderDay(){
   const matPresets  = await Store.loadMaterials();
   s.appendChild(categoryCard({
     kind:"공구", emoji:"🧰", word:"공구", datalistId:"toollist",
-    presets: toolPresets, addPreset: Store.addTool,
+    presets: toolPresets, addPreset: Store.addTool, reloadPresets: Store.loadTools,
   }));
   s.appendChild(categoryCard({
     kind:"자재", emoji:"📦", word:"자재", datalistId:"matlist",
-    presets: matPresets, addPreset: Store.addMaterial,
+    presets: matPresets, addPreset: Store.addMaterial, reloadPresets: Store.loadMaterials,
   }));
 }
 
@@ -584,39 +584,10 @@ function categoryCard(cfg){
   cfg.presets.forEach(n=> dl.appendChild(el(`<option value="${esc(n)}">`)));
   card.appendChild(dl);
 
-  // 1) 가져온 것 — 버튼 눌러 체크
-  card.appendChild(el(`<div class="muted" style="margin-bottom:8px">가져온 ${cfg.word}를 누르세요. 다시 누르면 취소.</div>`));
-  const grid = el(`<div class="grid2"></div>`);
-  cfg.presets.forEach(name=>{
-    const on = APP.rec.items.some(it=>it.kind===K && it.source==="지참" && it.name===name);
-    const b = el(`<button class="btn ${on?'sel':'pick'}">${esc(name)}</button>`);
-    b.disabled = locked;
-    b.onclick = async ()=>{
-      const i = APP.rec.items.findIndex(it=>it.kind===K && it.source==="지참" && it.name===name);
-      if(i>=0) APP.rec.items.splice(i,1);
-      else APP.rec.items.push({ id:uid(), kind:K, source:"지참", name, count:1, place:null });
-      await save(); renderDay();
-    };
-    grid.appendChild(b);
-  });
-  card.appendChild(grid);
-  if(!locked){
-    const addP = el(`<button class="btn ghost" style="margin-top:10px">+ 가져온 ${cfg.word} 직접추가</button>`);
-    addP.onclick = async ()=>{
-      const name = prompt(`가져온 ${cfg.word} 이름`);
-      if(name && name.trim()){
-        await cfg.addPreset(name.trim());
-        if(!APP.rec.items.some(it=>it.kind===K && it.source==="지참" && it.name===name.trim()))
-          APP.rec.items.push({ id:uid(), kind:K, source:"지참", name:name.trim(), count:1, place:null });
-        await save(); renderDay();
-      }
-    };
-    card.appendChild(addP);
-  }
-  // 가져온 것 수량 조정
+  // 1) 가져온 것 — 처음엔 비어 있고, [+ 추가] 누르면 목록에서 고름
   const brought = APP.rec.items.filter(it=>it.kind===K && it.source==="지참");
   if(brought.length){
-    const cnt = el(`<div style="margin-top:12px"></div>`);
+    const cnt = el(`<div style="margin-bottom:6px"></div>`);
     brought.forEach(it=>{
       const row = el(`<div class="row" style="justify-content:space-between;margin-bottom:8px"></div>`);
       row.appendChild(el(`<span style="font-weight:700">${esc(it.name)}</span>`));
@@ -634,6 +605,13 @@ function categoryCard(cfg){
       cnt.appendChild(row);
     });
     card.appendChild(cnt);
+  }else{
+    card.appendChild(el(`<div class="muted" style="margin-bottom:8px">아직 없습니다. 아래 [+ ${cfg.word} 고르기]를 누르세요.</div>`));
+  }
+  if(!locked){
+    const pickBtn = el(`<button class="btn brand" style="margin-bottom:4px">+ ${cfg.word} 고르기</button>`);
+    pickBtn.onclick = ()=> openPicker(cfg);
+    card.appendChild(pickBtn);
   }
 
   // 2) 산·추가한 것 — 행 입력
@@ -651,6 +629,55 @@ function categoryCard(cfg){
     card.appendChild(addB);
   }
   return card;
+}
+
+// 가져온 공구·자재 고르기 팝업: 목록에서 찾아 클릭, 없으면 입력 -> 다음부터 자동완성
+function openPicker(cfg){
+  const K = cfg.kind;
+  showModal(`
+    <h3>${cfg.word} 고르기</h3>
+    <input type="text" id="pk-input" placeholder="찾기 / 없으면 여기에 입력">
+    <div class="row" style="margin:8px 0"><button class="btn small brand" id="pk-add" style="width:100%">+ 새로 만들어 추가</button></div>
+    <div class="muted" style="margin:6px 0 4px">아래에서 찾아 누르세요 (누르면 추가, 다시 누르면 취소)</div>
+    <div id="pk-list" style="max-height:46vh;overflow:auto"></div>
+    <div class="row" style="margin-top:12px"><button class="btn small" id="pk-close" style="width:100%">닫기</button></div>
+  `, (root, close)=>{
+    const input = root.querySelector("#pk-input");
+    const listBox = root.querySelector("#pk-list");
+    const isAdded = (name)=> APP.rec.items.some(it=>it.kind===K && it.source==="지참" && it.name===name);
+    async function toggle(name){
+      const i = APP.rec.items.findIndex(it=>it.kind===K && it.source==="지참" && it.name===name);
+      if(i>=0) APP.rec.items.splice(i,1);
+      else APP.rec.items.push({ id:uid(), kind:K, source:"지참", name, count:1, place:null });
+      await save();
+    }
+    function renderList(){
+      const f = (input.value||"").trim();
+      listBox.innerHTML="";
+      const matches = cfg.presets.filter(n=> !f || n.includes(f));
+      matches.forEach(name=>{
+        const on = isAdded(name);
+        const b = el(`<button class="btn ${on?'sel':'pick'}" style="justify-content:space-between;margin-bottom:8px"><span>${esc(name)}</span><span>${on?'✅':''}</span></button>`);
+        b.onclick = async ()=>{ await toggle(name); renderList(); };
+        listBox.appendChild(b);
+      });
+      if(!matches.length){
+        listBox.appendChild(el(`<div class="muted">목록에 없습니다. 위 [+ 새로 만들어 추가]를 누르세요.</div>`));
+      }
+    }
+    input.oninput = renderList;
+    root.querySelector("#pk-add").onclick = async ()=>{
+      const name = input.value.trim();
+      if(!name){ input.focus(); return; }
+      await cfg.addPreset(name);
+      if(cfg.reloadPresets) cfg.presets = await cfg.reloadPresets(); // 새 이름을 목록/자동완성에 반영
+      if(!isAdded(name)) await toggle(name);
+      input.value="";
+      renderList();
+    };
+    root.querySelector("#pk-close").onclick = ()=>{ close(); renderDay(); };
+    renderList();
+  });
 }
 
 // 산·추가한 공구/자재 한 줄 (kind 로 구분)
