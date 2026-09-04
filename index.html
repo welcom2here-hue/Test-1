@@ -590,15 +590,28 @@ function categoryCard(cfg){
     const cnt = el(`<div style="margin-bottom:6px"></div>`);
     brought.forEach(it=>{
       const row = el(`<div class="row" style="justify-content:space-between;margin-bottom:8px"></div>`);
-      row.appendChild(el(`<span style="font-weight:700">${esc(it.name)}</span>`));
+      // 이름 — 누르면 수정
+      const nameBtn = el(`<button class="btn small ghost" style="width:auto;border:none;font-weight:800;text-align:left;padding:6px 2px">✏️ ${esc(it.name)}</button>`);
+      nameBtn.disabled=locked;
+      nameBtn.onclick=async ()=>{
+        const nv = prompt("이름 수정", it.name);
+        if(nv!=null && nv.trim() && nv.trim()!==it.name){
+          it.name = nv.trim();
+          await cfg.addPreset(it.name);   // 고친 이름도 목록/자동완성에 반영
+          await save(); renderDay();
+        }
+      };
+      row.appendChild(nameBtn);
       const box = el(`<div class="row"></div>`);
       const minus = el(`<button class="btn small pick" style="min-width:52px">−</button>`);
-      const num   = el(`<span class="amt" style="min-width:40px;text-align:center">${it.count||1}</span>`);
+      // 개수 — 누르면 직접 입력
+      const num   = el(`<button class="btn small pick" style="min-width:48px">${it.count||1}</button>`);
       const plus  = el(`<button class="btn small pick" style="min-width:52px">+</button>`);
       const del   = el(`<button class="btn del" style="margin-left:6px">삭제</button>`);
-      [minus,plus,del].forEach(x=>x.disabled=locked);
+      [minus,num,plus,del].forEach(x=>x.disabled=locked);
       minus.onclick=async ()=>{ it.count=Math.max(1,(Number(it.count)||1)-1); await save(); renderDay(); };
       plus.onclick =async ()=>{ it.count=(Number(it.count)||1)+1; await save(); renderDay(); };
+      num.onclick  =async ()=>{ const v=prompt("개수 입력", it.count||1); if(v!=null){ it.count=Math.max(1,Math.floor(Number(v))||1); await save(); renderDay(); } };
       del.onclick  =async ()=>{ const i=APP.rec.items.indexOf(it); if(i>=0)APP.rec.items.splice(i,1); await save(); renderDay(); };
       box.appendChild(minus); box.appendChild(num); box.appendChild(plus); box.appendChild(del);
       row.appendChild(box);
