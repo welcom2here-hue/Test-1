@@ -368,6 +368,17 @@ async function classifyPhoto(selectedType, ctx){
   // ctx = { blob, dataURL } 등 나중에 자동분류에 필요할 정보 자리
   return selectedType || "기타";
 }
+
+// ---- 송장(레미콘/덤프) 사진 판독 자리 ----
+//  지금은 빈 값을 돌려주어 오후 반입기록에 "사진 연결된 빈 줄"만 생성한다.
+//  나중에 서버/AI OCR을 붙일 때, 이 함수 하나만 교체하면
+//  { company, carNo, count, pourLoc, direction } 등을 채워서 자동 입력된다.
+//  (서버 붙이는 법은 파일 맨 위 주석 참고 — 화면 코드는 손대지 않음)
+async function parseInvoice(equipType, ctx){
+  // ctx = { blob, thumb }
+  // 예시(미래): return { company:"A업체", carNo:"12가3456", count:"5", pourLoc:"3구간" };
+  return {};
+}
 </script>
 
 <!-- ========================================================================
@@ -560,6 +571,36 @@ async function renderDay(){
     if(!locked) listCard.appendChild(el(`<div class="hint">사진을 누르면 종류 변경·삭제할 수 있습니다.</div>`));
   }
   s.appendChild(listCard);
+
+  // ---- 송장 (레미콘/덤프) -> 오후 반입기록 자동 생성·연동 ----
+  const cInv = el(`<div class="card"><div class="sec-title">📄 송장 올리기 (레미콘·덤프)</div></div>`);
+  cInv.appendChild(el(`<div class="muted" style="margin-bottom:8px">송장 사진을 올리면 오후 [반입기록]에 줄이 자동 생성됩니다. 내용은 오후에서 확인·수정.</div>`));
+  if(!locked){
+    const g = el(`<div class="grid2"></div>`);
+    [["레미콘","🚛 레미콘 송장"],["덤프","🚚 덤프 송장"]].forEach(([type,label])=>{
+      const wrap = el(`<div><button class="btn pick">${label}</button><input type="file" accept="image/*" capture="environment" style="display:none"></div>`);
+      const inp = wrap.querySelector("input"); const b = wrap.querySelector("button");
+      b.onclick = ()=> inp.click();
+      inp.onchange = async (e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=""; if(f) await handleInvoice(type, f); };
+      g.appendChild(wrap);
+    });
+    cInv.appendChild(g);
+  }
+  // 오늘 올린 송장 목록 (오후 반입과 연동된 것)
+  const invItems = APP.rec.items.filter(it=>it.fromInvoice);
+  if(invItems.length){
+    const box = el(`<div class="thumbs" style="margin-top:10px"></div>`);
+    invItems.forEach(it=>{
+      const car = it.carNo ? it.carNo : "(오후에서 입력)";
+      box.appendChild(el(`<div class="thumb">
+        ${it.photoThumb?`<img src="${it.photoThumb}">`:''}
+        <div class="tag"><span>${esc(it.equip)}</span><span>${esc(car)}</span></div>
+      </div>`));
+    });
+    cInv.appendChild(box);
+    cInv.appendChild(el(`<div class="hint">↳ 오후 [반입기록]에서 내용 수정·삭제할 수 있습니다.</div>`));
+  }
+  s.appendChild(cInv);
 
   // ---- 오늘 공구 / 오늘 자재 (같은 양식) ----
   const toolPresets = await Store.loadTools();
@@ -810,6 +851,28 @@ function attachPhotoAndDelete(box, it, locked, rerender){
   }
 }
 
+// 송장 사진 -> 오후 반입기록에 줄 자동 생성 + 사진 연결 + (미래) 판독 결과 채움
+async function handleInvoice(type, file){
+  let processed;
+  try{ processed = await processPhoto(file); }
+  catch(err){ alert("사진 처리 실패. 다시 찍어 주세요."); return; }
+  const id = "p_"+uid();
+  const ok = await Store.savePhoto(id, processed.blob);
+  if(!ok){ alert("저장 공간이 부족해 이 송장은 건너뜁니다."); return; }
+
+  const item = newInItem(type);        // kind:"장비", equip:type (레미콘/덤프)
+  item.fromInvoice = true;
+  item.photoId = id; item.photoThumb = processed.thumb;
+  // 판독 자리 — 지금은 빈 값, 나중에 parseInvoice 교체 시 자동으로 칸이 채워짐
+  try{ Object.assign(item, await parseInvoice(type, {blob:processed.blob, thumb:processed.thumb})); }catch(e){}
+
+  APP.rec.items.push(item);
+  const okDay = await Store.saveDay(APP.rec);
+  if(!okDay){ APP.rec.items.pop(); alert("저장 공간이 부족합니다. 이 송장은 건너뜁니다."); return; }
+  alert(type+" 송장을 오후 [반입기록]에 추가했습니다.\n오후에서 내용 확인·수정하세요.");
+  renderDay();
+}
+
 async function handleShot(file){
   const shootBtn = document.getElementById("shoot");
   if(shootBtn){ shootBtn.disabled=true; shootBtn.style.opacity=.6; }
@@ -932,7 +995,7 @@ async function renderEvening(){
   if(!locked){
     const addL = el(`<button class="btn ghost" style="margin-top:6px">+ 인력 추가</button>`);
     addL.onclick=async ()=>{
-      APP.rec.items.push({ id:uid(), kind:"인력", name:"", wage:CONFIG.WAGES[1], gongsu:1.0, amount:CONFIG.WAGES[1]*1.0, manual:false });
+      APP.rec.items.push({ id:uid(), kind:"인력", name:"", wage:CONFIG.WAGES[1], amount:CONFIG.WAGES[1], manual:false });
       await save(); renderEvening();
     };
     cL.appendChild(addL);
@@ -1038,16 +1101,6 @@ function laborRow(it, locked){
     wRow.appendChild(b);
   });
   box.appendChild(wRow);
-  // 공수
-  box.appendChild(el(`<label class="fld">공수</label>`));
-  const gRow=el(`<div class="grid3"></div>`);
-  CONFIG.GONGSU.forEach(g=>{
-    const b=el(`<button class="btn small ${Number(it.gongsu)===g?'sel':'pick'}" style="width:100%">${g}</button>`);
-    b.disabled=locked;
-    b.onclick=async ()=>{ it.gongsu=g; recalc(it); await save(); renderEvening(); };
-    gRow.appendChild(b);
-  });
-  box.appendChild(gRow);
   // 금액 (손으로 고치면 유지)
   box.appendChild(el(`<label class="fld">금액 (자동계산, 직접 고칠 수 있음)</label>`));
   const amt = el(`<input type="number" inputmode="numeric" value="${Number(it.amount)||0}">`);
@@ -1067,7 +1120,8 @@ function laborRow(it, locked){
   return box;
 }
 function recalc(it){
-  if(!it.manual) it.amount = Math.round((Number(it.wage)||0)*(Number(it.gongsu)||0));
+  // 공수 제거: 금액은 단가 그대로 (손으로 고치면 그 값 유지)
+  if(!it.manual) it.amount = Number(it.wage)||0;
 }
 
 function newInItem(type){
@@ -1080,7 +1134,7 @@ function newInItem(type){
 
 function inRow(it, vehicles, locked){
   const box = el(`<div class="item"></div>`);
-  box.appendChild(el(`<div class="head"><span class="kind">${esc(it.equip||it.kind)}</span></div>`));
+  box.appendChild(el(`<div class="head"><span class="kind">${esc(it.equip||it.kind)}${it.fromInvoice?' 📄송장':''}</span></div>`));
 
   // 차량번호 (필수 아님, 자동완성)
   box.appendChild(el(`<label class="fld">차량번호 (선택)</label>`));
@@ -1435,7 +1489,7 @@ async function renderAdminDetail(){
   // 인력
   s.appendChild(el(`<div class="card">
     <div class="sec-title">인력 (${labor.length}명)</div>
-    ${labor.map(i=>`<div class="kv"><span>${esc(i.name||"-")} · ${i.gongsu}공수</span><span>${won(i.amount)} 원</span></div>`).join("") || '<div class="muted">없음</div>'}
+    ${labor.map(i=>`<div class="kv"><span>${esc(i.name||"-")}</span><span>${won(i.amount)} 원</span></div>`).join("") || '<div class="muted">없음</div>'}
     <div class="total">합계 ${won(total)} 원</div>
   </div>`));
 
