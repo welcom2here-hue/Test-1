@@ -167,6 +167,9 @@
      CONFIG : 바꿀 값은 전부 여기 한 곳에 모여 있음
      ======================================================================== -->
 <script>
+// 화면 오른쪽 위에 뜨는 버전 (새 버전이 반영됐는지 확인용). 수정할 때마다 올림.
+const APP_VERSION = "v10";
+
 const CONFIG = {
   // 현장 링크 토큰 -> 현장 이름  (현장마다 다른 링크. 카톡으로 이 링크를 보낸다)
   //   예: ?s=k7x2a9  ->  A현장
@@ -500,7 +503,7 @@ function renderWorker(){
   app.innerHTML = `
     <header class="top">
       <span>${esc(APP.siteName)}</span>
-      <span class="date">${APP.today}</span>
+      <span class="date">${APP.today} · ${APP_VERSION}</span>
     </header>
     <div class="wrap" id="screen"></div>
     <div class="tabbar">
