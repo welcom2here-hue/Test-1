@@ -542,9 +542,9 @@ async function renderDay(){
 
   // 사진 찍기 큰 버튼
   const shot = el(`<div class="card">
-    <button class="btn brand huge" id="shoot">📷 사진 찍기<br><small style="font-size:16px;font-weight:600">(${esc(APP.photoType||'')})</small></button>
-    <input type="file" accept="image/*" capture="environment" id="cam" style="display:none">
-    <div class="hint">누르면 바로 저장됩니다. 확인 팝업 없음.</div>
+    <button class="btn brand huge" id="shoot">📷 사진 찍기 / 앨범<br><small style="font-size:16px;font-weight:600">(${esc(APP.photoType||'')})</small></button>
+    <input type="file" accept="image/*" id="cam" style="display:none">
+    <div class="hint">카메라로 찍거나 앨범에서 고를 수 있습니다. 레미콘·덤프는 오후 반입기록에 자동 추가됩니다.</div>
   </div>`);
   s.appendChild(shot);
   const cam = shot.querySelector("#cam");
@@ -576,45 +576,6 @@ async function renderDay(){
     if(!locked) listCard.appendChild(el(`<div class="hint">사진을 누르면 종류 변경·삭제할 수 있습니다.</div>`));
   }
   s.appendChild(listCard);
-
-  // ---- 송장 (레미콘/덤프) -> 오후 반입기록 자동 생성·연동 ----
-  const cInv = el(`<div class="card"><div class="sec-title">📄 송장 올리기 (레미콘·덤프)</div></div>`);
-  cInv.appendChild(el(`<div class="muted" style="margin-bottom:8px">송장 사진을 올리면 오후 [반입기록]에 줄이 자동 생성됩니다. 내용은 오후에서 확인·수정.</div>`));
-  if(!locked){
-    const g = el(`<div class="grid2"></div>`);
-    [["레미콘","🚛 레미콘 송장"],["덤프","🚚 덤프 송장"]].forEach(([type,label])=>{
-      const wrap = el(`<div><button class="btn pick">${label}</button><input type="file" accept="image/*" capture="environment" style="display:none"></div>`);
-      const inp = wrap.querySelector("input"); const b = wrap.querySelector("button");
-      b.onclick = ()=> inp.click();
-      inp.onchange = async (e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=""; if(f) await handleInvoice(type, f); };
-      g.appendChild(wrap);
-    });
-    cInv.appendChild(g);
-  }
-  // 오늘 올린 송장 목록 (오후 반입과 연동된 것)
-  const invItems = APP.rec.items.filter(it=>it.fromInvoice);
-  if(invItems.length){
-    const box = el(`<div class="thumbs" style="margin-top:10px"></div>`);
-    invItems.forEach(it=>{
-      const car = it.carNo ? it.carNo : "(오후에서 입력)";
-      const t = el(`<div class="thumb" style="cursor:pointer">
-        ${it.photoThumb?`<img src="${it.photoThumb}">`:''}
-        <div class="tag"><span>${esc(it.equip)}</span><span>${esc(car)}</span></div>
-      </div>`);
-      if(!locked){
-        t.onclick = async ()=>{
-          if(!confirm(it.equip+" 송장을 삭제할까요?\n(오후 반입기록의 줄도 함께 삭제됩니다)")) return;
-          const i=APP.rec.items.indexOf(it); if(i>=0) APP.rec.items.splice(i,1);
-          if(it.photoId) Store.deletePhoto(it.photoId);
-          await save(); renderDay();
-        };
-      }
-      box.appendChild(t);
-    });
-    cInv.appendChild(box);
-    cInv.appendChild(el(`<div class="hint">↳ 내용 수정은 오후 [반입기록], 삭제는 사진을 누르세요.</div>`));
-  }
-  s.appendChild(cInv);
 
   // ---- 오늘 공구 / 오늘 자재 (같은 양식) ----
   const toolPresets = await Store.loadTools();
@@ -941,28 +902,6 @@ function attachPhotoAndDelete(box, it, locked, rerender){
     };
     box.appendChild(del);
   }
-}
-
-// 송장 사진 -> 오후 반입기록에 줄 자동 생성 + 사진 연결 + (미래) 판독 결과 채움
-async function handleInvoice(type, file){
-  let processed;
-  try{ processed = await processPhoto(file); }
-  catch(err){ alert("사진 처리 실패. 다시 찍어 주세요."); return; }
-  const id = "p_"+uid();
-  const ok = await Store.savePhoto(id, processed.blob);
-  if(!ok){ alert("저장 공간이 부족해 이 송장은 건너뜁니다."); return; }
-
-  const item = newInItem(type);        // kind:"장비", equip:type (레미콘/덤프)
-  item.fromInvoice = true;
-  item.photoId = id; item.photoThumb = processed.thumb;
-  // 판독 자리 — 지금은 빈 값, 나중에 parseInvoice 교체 시 자동으로 칸이 채워짐
-  try{ Object.assign(item, await parseInvoice(type, {blob:processed.blob, thumb:processed.thumb})); }catch(e){}
-
-  APP.rec.items.push(item);
-  const okDay = await Store.saveDay(APP.rec);
-  if(!okDay){ APP.rec.items.pop(); alert("저장 공간이 부족합니다. 이 송장은 건너뜁니다."); return; }
-  alert(type+" 송장을 오후 [반입기록]에 추가했습니다.\n오후에서 내용 확인·수정하세요.");
-  renderDay();
 }
 
 async function handleShot(file){
