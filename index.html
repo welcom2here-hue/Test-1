@@ -198,6 +198,12 @@ const CONFIG = {
     "양수기", "절단기", "전동드릴", "그라인더", "수평계", "줄자"
   ],
 
+  // 자재 기본 목록 (공구와 동일한 버튼 방식. +직접추가 하면 뒤에 쌓임)
+  MATERIALS: [
+    "시멘트", "모래", "자갈", "레미탈", "철근", "각재",
+    "합판", "PE관", "흄관", "부직포", "아스팔트", "잡석"
+  ],
+
   // 저녁에 일 마치고 공구·자재를 어디에 뒀는지 (확인 체크용)
   PLACES: ["창고", "차", "현장"],
 
@@ -288,6 +294,16 @@ const Store = (function(){
     },
     async loadPhoto(id){
       try{ return await idbGet(id); }catch(e){ return null; }
+    },
+    async deletePhoto(id){
+      try{
+        const db = await idb();
+        return new Promise((res)=>{
+          const tx = db.transaction("photos","readwrite");
+          tx.objectStore("photos").delete(id);
+          tx.oncomplete=()=>res(true); tx.onerror=()=>res(false);
+        });
+      }catch(e){ return false; }
     },
 
     // ---- 차량 목록 (번호 -> 업체/기사) ----
@@ -477,8 +493,8 @@ function renderWorker(){
     </header>
     <div class="wrap" id="screen"></div>
     <div class="tabbar">
-      <button id="tab-day" class="${APP.tab==='day'?'on':''}">📷 사진</button>
-      <button id="tab-eve" class="${APP.tab==='evening'?'on':''}">📝 저녁 정리</button>
+      <button id="tab-day" class="${APP.tab==='day'?'on':''}">🌅 오전</button>
+      <button id="tab-eve" class="${APP.tab==='evening'?'on':''}">🌆 오후</button>
     </div>`;
   app.querySelector("#tab-day").onclick=()=>{ APP.tab="day"; renderWorker(); };
   app.querySelector("#tab-eve").onclick=()=>{ APP.tab="evening"; renderWorker(); };
@@ -493,7 +509,7 @@ async function renderDay(){
   const locked = APP.rec.locked;
 
   if(locked){
-    s.appendChild(el(`<div class="locked-note">🔒 오늘 기록이 서명 완료되어 잠겨 있습니다. [저녁 정리]에서 수정할 수 있습니다.</div>`));
+    s.appendChild(el(`<div class="locked-note">🔒 오늘 기록이 서명 완료되어 잠겨 있습니다. [🌆 오후]에서 수정할 수 있습니다.</div>`));
   }
 
   // 사진 종류 선택 (찍기 전에)
@@ -534,229 +550,193 @@ async function renderDay(){
     tw.replaceWith(el(`<div class="muted">아직 없습니다.</div>`));
   }else{
     APP.rec.photos.slice().reverse().forEach(p=>{
-      tw.appendChild(el(`<div class="thumb">
+      const t = el(`<div class="thumb" style="cursor:pointer">
         <img src="${p.thumb}" alt="">
         <div class="tag"><span>${esc(p.type)}</span><span>${esc(p.time)}</span></div>
-      </div>`));
+      </div>`);
+      t.onclick = ()=> openPhotoMenu(p);
+      tw.appendChild(t);
     });
+    if(!locked) listCard.appendChild(el(`<div class="hint">사진을 누르면 종류 변경·삭제할 수 있습니다.</div>`));
   }
   s.appendChild(listCard);
 
-  // ---- 오늘 공구 (아침 가져온 것 + 중간에 산·추가한 것) ----
-  const toolList = await Store.loadTools();
-  const tDl = el(`<datalist id="toollist"></datalist>`);
-  toolList.forEach(n=> tDl.appendChild(el(`<option value="${esc(n)}">`)));
-  s.appendChild(tDl);
+  // ---- 오늘 공구 / 오늘 자재 (같은 양식) ----
+  const toolPresets = await Store.loadTools();
+  const matPresets  = await Store.loadMaterials();
+  s.appendChild(categoryCard({
+    kind:"공구", emoji:"🧰", word:"공구", datalistId:"toollist",
+    presets: toolPresets, addPreset: Store.addTool,
+  }));
+  s.appendChild(categoryCard({
+    kind:"자재", emoji:"📦", word:"자재", datalistId:"matlist",
+    presets: matPresets, addPreset: Store.addMaterial,
+  }));
+}
 
-  const cT = el(`<div class="card"><div class="sec-title">🧰 오늘 공구</div></div>`);
-  cT.appendChild(el(`<div class="muted" style="margin-bottom:8px">가져온 공구를 누르세요. 다시 누르면 취소.</div>`));
-  const tGrid = el(`<div class="grid2"></div>`);
-  toolList.forEach(name=>{
-    const on = APP.rec.items.some(it=>it.kind==="공구" && it.source==="지참" && it.name===name);
+// 공구·자재 공용 카드 (가져온 것=버튼 체크+수량, 산·추가한 것=행 입력)
+function categoryCard(cfg){
+  const locked = APP.rec.locked;
+  const K = cfg.kind;
+  const card = el(`<div class="card"><div class="sec-title">${cfg.emoji} 오늘 ${cfg.word}</div></div>`);
+  // 자동완성용 datalist
+  const dl = el(`<datalist id="${cfg.datalistId}"></datalist>`);
+  cfg.presets.forEach(n=> dl.appendChild(el(`<option value="${esc(n)}">`)));
+  card.appendChild(dl);
+
+  // 1) 가져온 것 — 버튼 눌러 체크
+  card.appendChild(el(`<div class="muted" style="margin-bottom:8px">가져온 ${cfg.word}를 누르세요. 다시 누르면 취소.</div>`));
+  const grid = el(`<div class="grid2"></div>`);
+  cfg.presets.forEach(name=>{
+    const on = APP.rec.items.some(it=>it.kind===K && it.source==="지참" && it.name===name);
     const b = el(`<button class="btn ${on?'sel':'pick'}">${esc(name)}</button>`);
     b.disabled = locked;
     b.onclick = async ()=>{
-      const i = APP.rec.items.findIndex(it=>it.kind==="공구" && it.source==="지참" && it.name===name);
+      const i = APP.rec.items.findIndex(it=>it.kind===K && it.source==="지참" && it.name===name);
       if(i>=0) APP.rec.items.splice(i,1);
-      else APP.rec.items.push({ id:uid(), kind:"공구", source:"지참", name, count:1, place:null });
+      else APP.rec.items.push({ id:uid(), kind:K, source:"지참", name, count:1, place:null });
       await save(); renderDay();
     };
-    tGrid.appendChild(b);
+    grid.appendChild(b);
   });
-  cT.appendChild(tGrid);
+  card.appendChild(grid);
   if(!locked){
-    const addT = el(`<button class="btn ghost" style="margin-top:10px">+ 가져온 공구 직접추가</button>`);
-    addT.onclick = async ()=>{
-      const name = prompt("가져온 공구 이름");
+    const addP = el(`<button class="btn ghost" style="margin-top:10px">+ 가져온 ${cfg.word} 직접추가</button>`);
+    addP.onclick = async ()=>{
+      const name = prompt(`가져온 ${cfg.word} 이름`);
       if(name && name.trim()){
-        await Store.addTool(name.trim());
-        if(!APP.rec.items.some(it=>it.kind==="공구" && it.source==="지참" && it.name===name.trim()))
-          APP.rec.items.push({ id:uid(), kind:"공구", source:"지참", name:name.trim(), count:1, place:null });
+        await cfg.addPreset(name.trim());
+        if(!APP.rec.items.some(it=>it.kind===K && it.source==="지참" && it.name===name.trim()))
+          APP.rec.items.push({ id:uid(), kind:K, source:"지참", name:name.trim(), count:1, place:null });
         await save(); renderDay();
       }
     };
-    cT.appendChild(addT);
+    card.appendChild(addP);
   }
-  // 가져온 공구 수량 조정
-  const broughtTools = APP.rec.items.filter(it=>it.kind==="공구" && it.source==="지참");
-  if(broughtTools.length){
+  // 가져온 것 수량 조정
+  const brought = APP.rec.items.filter(it=>it.kind===K && it.source==="지참");
+  if(brought.length){
     const cnt = el(`<div style="margin-top:12px"></div>`);
-    broughtTools.forEach(it=>{
-      const row = el(`<div class="row" style="justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:700">${esc(it.name)}</span></div>`);
+    brought.forEach(it=>{
+      const row = el(`<div class="row" style="justify-content:space-between;margin-bottom:8px"></div>`);
+      row.appendChild(el(`<span style="font-weight:700">${esc(it.name)}</span>`));
       const box = el(`<div class="row"></div>`);
       const minus = el(`<button class="btn small pick" style="min-width:52px">−</button>`);
-      const num   = el(`<span class="amt" style="min-width:36px;text-align:center">${it.count||1}</span>`);
+      const num   = el(`<span class="amt" style="min-width:40px;text-align:center">${it.count||1}</span>`);
       const plus  = el(`<button class="btn small pick" style="min-width:52px">+</button>`);
-      minus.disabled=locked; plus.disabled=locked;
+      const del   = el(`<button class="btn del" style="margin-left:6px">삭제</button>`);
+      [minus,plus,del].forEach(x=>x.disabled=locked);
       minus.onclick=async ()=>{ it.count=Math.max(1,(Number(it.count)||1)-1); await save(); renderDay(); };
       plus.onclick =async ()=>{ it.count=(Number(it.count)||1)+1; await save(); renderDay(); };
-      box.appendChild(minus); box.appendChild(num); box.appendChild(plus);
+      del.onclick  =async ()=>{ const i=APP.rec.items.indexOf(it); if(i>=0)APP.rec.items.splice(i,1); await save(); renderDay(); };
+      box.appendChild(minus); box.appendChild(num); box.appendChild(plus); box.appendChild(del);
       row.appendChild(box);
       cnt.appendChild(row);
     });
-    cT.appendChild(cnt);
+    card.appendChild(cnt);
   }
-  // 산·추가한 공구 (중간에 구입하거나 들여온 것)
-  const boughtTools = APP.rec.items.filter(it=>it.kind==="공구" && it.source==="구입");
-  if(boughtTools.length){
-    cT.appendChild(el(`<div style="font-weight:800;margin:14px 0 6px">산·추가한 공구</div>`));
-    boughtTools.forEach(it=> cT.appendChild(purchasedToolRow(it, locked, renderDay)));
+
+  // 2) 산·추가한 것 — 행 입력
+  const bought = APP.rec.items.filter(it=>it.kind===K && it.source==="구입");
+  if(bought.length){
+    card.appendChild(el(`<div style="font-weight:800;margin:14px 0 6px">산·추가한 ${cfg.word}</div>`));
+    bought.forEach(it=> card.appendChild(purchasedRow(it, locked, renderDay)));
   }
   if(!locked){
-    const addBT = el(`<button class="btn ghost" style="margin-top:6px">+ 산·추가한 공구</button>`);
-    addBT.onclick = async ()=>{
-      APP.rec.items.push({ id:uid(), kind:"공구", source:"구입", name:"", count:1, amount:"", vendor:"", place:null, photoId:null, photoThumb:null });
-      await save(); renderDay();
-    };
-    cT.appendChild(addBT);
-  }
-  s.appendChild(cT);
-
-  // 자재명 자동완성 datalist (아침/저녁 공용)
-  const matNames = await Store.loadMaterials();
-  const mDl = el(`<datalist id="matlist"></datalist>`);
-  matNames.forEach(n=> mDl.appendChild(el(`<option value="${esc(n)}">`)));
-  s.appendChild(mDl);
-
-  // ---- 오늘 가지고 온 자재 (아침, 야적장에서 챙겨온 것) ----
-  const cB = el(`<div class="card"><div class="sec-title">📦 오늘 가지고 온 자재</div></div>`);
-  cB.appendChild(el(`<div class="muted" style="margin-bottom:8px">현장에 챙겨온 자재. 저녁에 다시 확인합니다.</div>`));
-  const bWrap = el(`<div></div>`);
-  APP.rec.items.filter(it=>it.kind==="자재" && it.source==="지참")
-    .forEach(it=> bWrap.appendChild(materialRow(it, locked, renderDay)));
-  cB.appendChild(bWrap);
-  if(!locked){
-    const addB = el(`<button class="btn ghost" style="margin-top:6px">+ 가져온 자재 추가</button>`);
+    const addB = el(`<button class="btn ghost" style="margin-top:6px">+ 산·추가한 ${cfg.word}</button>`);
     addB.onclick = async ()=>{
-      APP.rec.items.push({ id:uid(), kind:"자재", source:"지참", name:"", qty:"", checked:false, photoId:null, photoThumb:null });
+      APP.rec.items.push({ id:uid(), kind:K, source:"구입", name:"", count:1, qty:"", amount:"", vendor:"", place:null, photoId:null, photoThumb:null });
       await save(); renderDay();
     };
-    cB.appendChild(addB);
+    card.appendChild(addB);
   }
-  s.appendChild(cB);
-
-  // ---- 오늘 새로 산 자재 ----
-  const cM = el(`<div class="card"><div class="sec-title">🛒 오늘 새로 산 자재</div></div>`);
-  const mWrap = el(`<div id="mwrap"></div>`);
-  APP.rec.items.filter(it=>it.kind==="자재" && it.source==="구입")
-    .forEach(it=> mWrap.appendChild(materialRow(it, locked, renderDay)));
-  cM.appendChild(mWrap);
-  if(!locked){
-    const addM = el(`<button class="btn ghost" style="margin-top:6px">+ 자재 추가</button>`);
-    addM.onclick = async ()=>{
-      APP.rec.items.push({ id:uid(), kind:"자재", source:"구입", name:"", qty:"", amount:"", vendor:"", checked:false, photoId:null, photoThumb:null });
-      await save(); renderDay();
-    };
-    cM.appendChild(addM);
-  }
-  s.appendChild(cM);
+  return card;
 }
 
-// 자재 한 줄 (source "지참" = 가져온 것 / "구입" = 새로 산 것). rerender = 다시 그릴 함수
-function materialRow(it, locked, rerender){
+// 산·추가한 공구/자재 한 줄 (kind 로 구분)
+function purchasedRow(it, locked, rerender){
+  const isTool = it.kind==="공구";
+  const listId = isTool ? "toollist" : "matlist";
   const box = el(`<div class="item"></div>`);
-  const label = it.source==="구입" ? "새로 산 자재" : "가져온 자재";
-  box.appendChild(el(`<div class="head"><span class="kind">${label}</span></div>`));
-  // 자재명
-  box.appendChild(el(`<label class="fld">자재명</label>`));
-  const name = el(`<input type="text" list="matlist" value="${esc(it.name)}" placeholder="예) 시멘트">`);
-  name.disabled=locked;
-  name.oninput=(e)=>{ it.name=e.target.value; };
-  name.onchange=async (e)=>{ await Store.addMaterial(e.target.value.trim()); await save(); };
-  box.appendChild(name);
-  // 수량 (자유 입력: 20포, 5m 등)
-  box.appendChild(el(`<label class="fld">수량</label>`));
-  const qty = el(`<input type="text" value="${esc(it.qty||"")}" placeholder="예) 20포">`);
-  qty.disabled=locked; qty.oninput=(e)=>{ it.qty=e.target.value; }; qty.onchange=save;
-  box.appendChild(qty);
-  if(it.source==="구입"){
-    // 금액 (비워도 됨)
-    box.appendChild(el(`<label class="fld">금액 (비워도 됩니다)</label>`));
-    const amt = el(`<input type="number" inputmode="numeric" value="${it.amount!==""&&it.amount!=null?Number(it.amount):""}" placeholder="구입비">`);
-    amt.disabled=locked; amt.oninput=(e)=>{ it.amount = e.target.value===""?"":(Number(e.target.value)||0); }; amt.onchange=save;
-    box.appendChild(amt);
-    // 구입처
-    box.appendChild(el(`<label class="fld">구입처</label>`));
-    const vRow = el(`<div class="row" style="margin-bottom:6px"></div>`);
-    CONFIG.COMPANIES.forEach(c=>{
-      const b=el(`<button class="btn small ${it.vendor===c?'sel':'pick'}">${esc(c)}</button>`);
-      b.disabled=locked;
-      b.onclick=async ()=>{ it.vendor=c; await save(); rerender && rerender(); };
-      vRow.appendChild(b);
-    });
-    box.appendChild(vRow);
-    const vend = el(`<input type="text" value="${esc(it.vendor||"")}" placeholder="직접 입력 가능">`);
-    vend.disabled=locked; vend.oninput=(e)=>{ it.vendor=e.target.value; }; vend.onchange=save;
-    box.appendChild(vend);
-  }
-  // 사진 첨부 (영수증/자재)
-  box.appendChild(el(`<label class="fld">사진 첨부 (선택 · 영수증 등)</label>`));
-  if(it.photoThumb){
-    box.appendChild(el(`<img src="${it.photoThumb}" style="height:110px;border-radius:8px;border:1px solid var(--line)">`));
-  }
-  if(!locked){
-    const wrap=el(`<div><button class="btn ghost small" style="width:auto;margin-top:6px">📷 사진 첨부</button><input type="file" accept="image/*" capture="environment" style="display:none"></div>`);
-    const inp=wrap.querySelector("input"); const b=wrap.querySelector("button");
-    b.onclick=()=>inp.click();
-    inp.onchange=async (e)=>{
-      const f=e.target.files&&e.target.files[0]; e.target.value="";
-      if(!f) return;
-      try{
-        const {blob, thumb}=await processPhoto(f);
-        const id="p_"+uid();
-        const ok=await Store.savePhoto(id, blob);
-        if(!ok){ alert("저장 공간 부족으로 이 사진은 건너뜁니다."); return; }
-        it.photoId=id; it.photoThumb=thumb;
-        await save(); rerender && rerender();
-      }catch(err){ alert("사진 처리 실패"); }
-    };
-    box.appendChild(wrap);
-  }
-  // 삭제
-  if(!locked){
-    const del=el(`<div style="text-align:right;margin-top:10px"><button class="btn del">삭제</button></div>`);
-    del.querySelector("button").onclick=async ()=>{
-      const i=APP.rec.items.indexOf(it); if(i>=0) APP.rec.items.splice(i,1);
-      await save(); rerender && rerender();
-    };
-    box.appendChild(del);
-  }
-  return box;
-}
-
-// 산·추가한 공구 한 줄
-function purchasedToolRow(it, locked, rerender){
-  const box = el(`<div class="item"></div>`);
-  box.appendChild(el(`<div class="head"><span class="kind">산·추가 공구</span></div>`));
+  box.appendChild(el(`<div class="head"><span class="kind">산·추가 ${isTool?"공구":"자재"}</span></div>`));
   // 이름
-  box.appendChild(el(`<label class="fld">공구 이름</label>`));
-  const name = el(`<input type="text" list="toollist" value="${esc(it.name)}" placeholder="예) 전동드릴">`);
+  box.appendChild(el(`<label class="fld">${isTool?"공구":"자재"} 이름</label>`));
+  const name = el(`<input type="text" list="${listId}" value="${esc(it.name)}" placeholder="${isTool?"예) 전동드릴":"예) 시멘트"}">`);
   name.disabled=locked;
   name.oninput=(e)=>{ it.name=e.target.value; };
-  name.onchange=async (e)=>{ await Store.addTool(e.target.value.trim()); await save(); };
+  name.onchange=async (e)=>{ await (isTool?Store.addTool:Store.addMaterial)(e.target.value.trim()); await save(); };
   box.appendChild(name);
-  // 개수
-  box.appendChild(el(`<label class="fld">개수</label>`));
-  const qty = el(`<input type="number" inputmode="numeric" value="${Number(it.count)||1}">`);
-  qty.disabled=locked; qty.oninput=(e)=>{ it.count=Number(e.target.value)||1; }; qty.onchange=save;
-  box.appendChild(qty);
+  // 수량 (공구=개수 숫자, 자재=자유 입력)
+  if(isTool){
+    box.appendChild(el(`<label class="fld">개수</label>`));
+    const q = el(`<input type="number" inputmode="numeric" value="${Number(it.count)||1}">`);
+    q.disabled=locked; q.oninput=(e)=>{ it.count=Number(e.target.value)||1; }; q.onchange=save;
+    box.appendChild(q);
+  }else{
+    box.appendChild(el(`<label class="fld">수량</label>`));
+    const q = el(`<input type="text" value="${esc(it.qty||"")}" placeholder="예) 20포">`);
+    q.disabled=locked; q.oninput=(e)=>{ it.qty=e.target.value; }; q.onchange=save;
+    box.appendChild(q);
+  }
   // 금액 (비워도 됨)
   box.appendChild(el(`<label class="fld">금액 (비워도 됩니다)</label>`));
   const amt = el(`<input type="number" inputmode="numeric" value="${it.amount!==""&&it.amount!=null?Number(it.amount):""}" placeholder="구입비">`);
   amt.disabled=locked; amt.oninput=(e)=>{ it.amount = e.target.value===""?"":(Number(e.target.value)||0); }; amt.onchange=save;
   box.appendChild(amt);
-  // 구입처
+  // 구입처 (업체 버튼 + 직접)
   box.appendChild(el(`<label class="fld">구입처 (비워도 됩니다)</label>`));
+  const vRow = el(`<div class="row" style="margin-bottom:6px"></div>`);
+  CONFIG.COMPANIES.forEach(c=>{
+    const b=el(`<button class="btn small ${it.vendor===c?'sel':'pick'}">${esc(c)}</button>`);
+    b.disabled=locked;
+    b.onclick=async ()=>{ it.vendor=c; await save(); rerender && rerender(); };
+    vRow.appendChild(b);
+  });
+  box.appendChild(vRow);
   const vend = el(`<input type="text" value="${esc(it.vendor||"")}" placeholder="어디서 샀는지">`);
   vend.disabled=locked; vend.oninput=(e)=>{ it.vendor=e.target.value; }; vend.onchange=save;
   box.appendChild(vend);
-  // 사진 + 삭제 (공용 헬퍼)
+  // 사진 + 삭제
   attachPhotoAndDelete(box, it, locked, rerender);
   return box;
 }
 
-// 사진 첨부 + 삭제 (materialRow / purchasedToolRow 공용)
+// 사진 누르면 뜨는 메뉴 (종류 변경 / 삭제)
+function openPhotoMenu(p){
+  const locked = APP.rec.locked;
+  if(locked){
+    showModal(`<h3>사진</h3><img src="${p.thumb}" style="max-width:100%;border-radius:8px"><div class="muted" style="margin-top:8px">서명 완료되어 잠겨 있습니다.</div><div class="row" style="margin-top:12px"><button class="btn small" id="pm-close">닫기</button></div>`,
+      (root,close)=>{ root.querySelector("#pm-close").onclick=close; });
+    return;
+  }
+  showModal(`
+    <h3>사진</h3>
+    <img src="${p.thumb}" style="max-width:100%;border-radius:8px">
+    <label class="fld">종류 바꾸기</label>
+    <div class="grid4" id="pm-types"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn small del" id="pm-del">이 사진 삭제</button>
+      <button class="btn small" id="pm-close">닫기</button>
+    </div>
+  `, (root, close)=>{
+    const tg = root.querySelector("#pm-types");
+    CONFIG.PHOTO_TYPES.forEach(t=>{
+      const b = el(`<button class="btn small ${p.type===t?'sel':'pick'}" style="width:100%">${esc(t)}</button>`);
+      b.onclick = async ()=>{ p.type = t; await save(); close(); renderDay(); };
+      tg.appendChild(b);
+    });
+    root.querySelector("#pm-del").onclick = async ()=>{
+      if(!confirm("이 사진을 삭제할까요?")) return;
+      const i = APP.rec.photos.findIndex(x=>x.id===p.id);
+      if(i>=0) APP.rec.photos.splice(i,1);
+      if(p.id) Store.deletePhoto(p.id);
+      await save(); close(); renderDay();
+    };
+    root.querySelector("#pm-close").onclick = close;
+  });
+}
+
+// 사진 첨부 + 삭제 (purchasedRow 공용)
 function attachPhotoAndDelete(box, it, locked, rerender){
   box.appendChild(el(`<label class="fld">사진 첨부 (선택)</label>`));
   if(it.photoThumb){
@@ -947,15 +927,15 @@ async function renderEvening(){
 
   // 4) 공구·자재 확인 (일 마치고: 각 물건을 창고/차/현장 어디에 뒀는지 체크)
   const cChk = el(`<div class="card"><div class="sec-title">④ 공구·자재 확인</div></div>`);
-  cChk.appendChild(el(`<div class="muted" style="margin-bottom:8px">일 마치고 각 물건을 어디에 뒀는지 눌러 주세요. (창고 / 차 / 현장)<br>추가·구입은 [📷 사진] 화면에서.</div>`));
+  cChk.appendChild(el(`<div class="muted" style="margin-bottom:8px">일 마치고 각 물건을 어디에 뒀는지 눌러 주세요. (창고 / 차 / 현장)<br>추가·구입은 [🌅 오전] 화면에서.</div>`));
   const stuff = APP.rec.items.filter(it=>it.kind==="공구" || it.kind==="자재");
   if(stuff.length===0){
-    cChk.appendChild(el(`<div class="muted">등록된 공구·자재가 없습니다. [📷 사진] 화면에서 추가하세요.</div>`));
+    cChk.appendChild(el(`<div class="muted">등록된 공구·자재가 없습니다. [🌅 오전] 화면에서 추가하세요.</div>`));
   }else{
     stuff.forEach(it=>{
       const typeLabel = it.kind==="공구" ? "공구" : "자재";
       const srcLabel  = it.source==="구입" ? "산" : "가져온";
-      const q = it.kind==="공구" ? ((Number(it.count)>1)? it.count+"개" : "") : (it.qty||"");
+      const q = it.qty ? it.qty : (Number(it.count)>1 ? it.count+"개" : "");
       const nm = it.name || "(이름없음)";
       const box = el(`<div class="item"></div>`);
       box.appendChild(el(`<div style="font-weight:800;margin-bottom:8px">${it.place?'✅':'⬜'} ${esc(nm)} ${esc(q)} <span class="muted" style="font-size:14px">(${srcLabel} ${typeLabel})</span></div>`));
@@ -1343,7 +1323,8 @@ async function renderAdminOverview(){
         const src = m.source==="구입" ? "새로 산" : "가져온";
         const chk = m.place ? "✅" : "⬜";
         const place = m.place ? m.place : "미확인";
-        const label = [m.name||"(이름없음)", m.qty].filter(Boolean).join(" ");
+        const q = m.qty || (Number(m.count)>1? m.count+"개":"");
+        const label = [m.name||"(이름없음)", q].filter(Boolean).join(" ");
         matCard.appendChild(el(`<div class="kv"><span>${chk} ${esc(label)} <span class="muted" style="font-size:14px">(${src})</span></span><span class="muted">${esc(place)}</span></div>`));
       });
     });
@@ -1441,7 +1422,8 @@ async function renderAdminDetail(){
   s.appendChild(el(`<div class="card">
     <div class="sec-title">📦 가져온 자재 (${brought.length}건)</div>
     ${brought.map(i=>{
-      const label=[i.name, i.qty].filter(Boolean).join(" · ");
+      const q = i.qty || (Number(i.count)>1? i.count+"개":"");
+      const label=[i.name, q].filter(Boolean).join(" · ");
       return `<div class="kv"><span>${esc(label||"-")} ${i.photoThumb?'📷':''}</span><span>${placeStr(i)}</span></div>`;
     }).join("") || '<div class="muted">없음</div>'}
   </div>`));
