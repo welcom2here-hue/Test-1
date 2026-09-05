@@ -168,7 +168,7 @@
      ======================================================================== -->
 <script>
 // 화면 오른쪽 위에 뜨는 버전 (새 버전이 반영됐는지 확인용). 수정할 때마다 올림.
-const APP_VERSION = "v12";
+const APP_VERSION = "v13";
 
 const CONFIG = {
   // 현장 링크 토큰 -> 현장 이름  (현장마다 다른 링크. 카톡으로 이 링크를 보낸다)
@@ -378,9 +378,41 @@ async function classifyPhoto(selectedType, ctx){
 //  { company, carNo, count, pourLoc, direction } 등을 채워서 자동 입력된다.
 //  (서버 붙이는 법은 파일 맨 위 주석 참고 — 화면 코드는 손대지 않음)
 async function parseInvoice(equipType, ctx){
-  // ctx = { blob, thumb }
-  // 예시(미래): return { company:"A업체", carNo:"12가3456", count:"5", pourLoc:"3구간" };
-  return {};
+  // ctx = { blob, thumb }. 브라우저 OCR로 텍스트 뽑아 필드 추출 (best-effort)
+  try{
+    const T = await loadTesseract();
+    const { data } = await T.recognize(ctx.blob, "kor+eng");
+    return extractInvoiceFields(equipType, (data && data.text) || "");
+  }catch(e){ return {}; }
+}
+
+// OCR 텍스트에서 날짜/차량번호/회사/물량을 최대한 뽑아낸다 (정확도 보장 안 됨)
+function extractInvoiceFields(equipType, rawText){
+  const out = {};
+  const t = (rawText||"").replace(/[ \t]+/g," ");
+  const one = t.replace(/\s+/g," ");
+  // 날짜: 2026년 09월 03일 / 2026-09-03 / 2026.09.03
+  let m = one.match(/(20\d{2})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+  if(m){ out.invoiceDate = `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`; }
+  // 회사: 건설/건업/산업/개발/레미콘/콘크리트/중기/운수 로 끝나는 이름 (+ (주))
+  m = one.match(/([가-힣A-Za-z0-9]{2,10}(?:건설|건업|산업|개발|레미콘|콘크리트|중기|운수))(?:\s*\(주\))?/);
+  if(m){ out.company = m[1] + (one.indexOf(m[0])>=0 && m[0].includes("(주)") ? "(주)" : ""); }
+  // 차량번호: 표준번호(12가3456) 우선, 없으면 '운반차/차량 번호' 뒤 숫자
+  m = one.match(/\d{2,3}[가-힣]\d{4}/);
+  if(m){ out.carNo = m[0]; }
+  else{
+    m = one.match(/(?:운반차|차량)\s*번?호?\s*[:：]?\s*([0-9가-힣]{3,7})/);
+    if(m){ out.carNo = m[1]; }
+  }
+  // 물량: 레미콘 m³, 덤프 t
+  if(equipType==="레미콘"){
+    m = one.match(/(\d+(?:\.\d+)?)\s*(?:m3|m³|㎥|루베|루)/i);
+    if(m) out.count = m[1];
+  }else{
+    m = one.match(/(\d+(?:\.\d+)?)\s*(?:t\b|톤|ton)/i);
+    if(m) out.count = m[1];
+  }
+  return out;
 }
 
 // ---- 브라우저 자체 OCR (Tesseract.js) — 서버 없이 사진에서 차량번호 읽기 ----
@@ -950,8 +982,8 @@ async function handleShot(file){
     if(type==="레미콘" || type==="덤프"){
       intake = newInItem(type);
       intake.fromInvoice = true;
+      intake.ocr = "reading";   // 자동 판독 상태 (reading/done/none/fail)
       if(okPhoto){ intake.photoId = id; intake.photoThumb = processed.thumb; }
-      try{ Object.assign(intake, await parseInvoice(type, {blob:processed.blob, thumb:processed.thumb})); }catch(e){}
       APP.rec.items.push(intake);
     }
 
@@ -961,12 +993,40 @@ async function handleShot(file){
     } else if(!okPhoto){
       alert("저장 공간이 부족해 이 사진은 건너뜁니다.\n갤러리/캐시를 정리해 주세요.");
     } else if(intake){
-      alert(type+" → 오후 [반입기록] 맨 위에 자동으로 넣었습니다. 오후에서 확인하세요.");
+      alert(type+" → 오후 [반입기록]에 넣고, 지금 사진 자동 판독을 시작합니다.\n(처음엔 시간이 걸리고, 손글씨는 잘 안 읽힙니다. 결과는 손으로 수정하세요.)");
     }
     renderDay();
+
+    // 사진 판독은 시간이 걸리므로 백그라운드로 (사진 찍기 흐름을 막지 않음)
+    if(intake){ runInvoiceOCR(intake, processed.blob); }
   } finally {
     if(shootBtn){ shootBtn.disabled=false; shootBtn.style.opacity=1; }
   }
+}
+
+// 현재 작업자 화면만 다시 그림 (백그라운드 판독 결과 반영용)
+function refreshWorker(){
+  if(APP.mode!=="worker") return;
+  if(APP.tab==="day") renderDay(); else renderEvening();
+}
+
+// 배경 OCR: 반입 줄의 필드를 최대한 채운다. 이미 손으로 넣은 칸은 덮어쓰지 않음.
+async function runInvoiceOCR(intake, blob){
+  try{
+    const fields = await parseInvoice(intake.equip, { blob });
+    let filled = 0;
+    ["carNo","company","count","invoiceDate"].forEach(k=>{
+      if(fields[k] && !intake[k]){ intake[k] = fields[k]; filled++; }
+    });
+    // 차량번호로 업체/기사 연결
+    if(intake.carNo){
+      const v = await Store.loadVehicles();
+      if(v[intake.carNo]){ intake.company = intake.company||v[intake.carNo].company; intake.driver = intake.driver||v[intake.carNo].driver; }
+    }
+    intake.ocr = filled ? "done" : "none";
+  }catch(e){ intake.ocr = "fail"; }
+  await Store.saveDay(APP.rec);
+  refreshWorker();
 }
 
 // ---------- 저녁 화면 ----------
@@ -1164,7 +1224,22 @@ function newInItem(type){
 
 function inRow(it, vehicles, locked){
   const box = el(`<div class="item"></div>`);
-  box.appendChild(el(`<div class="head"><span class="kind">${esc(it.equip||it.kind)}${it.fromInvoice?' 📄송장':''}</span></div>`));
+  box.appendChild(el(`<div class="head"><span class="kind">${esc(it.equip||it.kind)}${it.fromInvoice?' 📄송장':''}${it.invoiceDate?' · '+esc(it.invoiceDate):''}</span></div>`));
+
+  // 자동 판독 상태 표시
+  if(it.fromInvoice){
+    if(it.ocr==="reading"){
+      box.appendChild(el(`<div class="muted" style="margin:2px 0 8px">📄 사진 자동 판독 중… (처음엔 시간이 걸립니다)</div>`));
+    }else if(it.ocr==="fail" || it.ocr==="none"){
+      const w = el(`<div class="row" style="margin:2px 0 8px"><span class="muted" style="font-size:15px">자동 판독 실패 — 손으로 입력하세요.</span></div>`);
+      if(!locked && it.photoId){
+        const rb = el(`<button class="btn ghost small" style="width:auto">🔄 다시 판독</button>`);
+        rb.onclick=async ()=>{ it.ocr="reading"; await save(); renderEvening(); const blob=await Store.loadPhoto(it.photoId); if(blob) runInvoiceOCR(it, blob); };
+        w.appendChild(rb);
+      }
+      box.appendChild(w);
+    }
+  }
 
   // 차량번호 (필수 아님, 자동완성)
   box.appendChild(el(`<label class="fld">차량번호 (선택)</label>`));
@@ -1180,34 +1255,6 @@ function inRow(it, vehicles, locked){
     await save(); renderEvening();
   };
   box.appendChild(car);
-
-  // 송장 사진에서 차량번호 자동 읽기 (누를 때만 실행)
-  if(!locked && it.photoId){
-    const ocrWrap = el(`<div style="margin-top:6px"></div>`);
-    const ocrBtn = el(`<button class="btn ghost small" style="width:auto">🔍 사진에서 차량번호 읽기</button>`);
-    const stat = el(`<span class="muted" style="margin-left:8px;font-size:15px"></span>`);
-    ocrBtn.onclick = async ()=>{
-      ocrBtn.disabled=true; stat.textContent="읽는 중… (처음엔 좀 걸립니다)";
-      try{
-        const blob = await Store.loadPhoto(it.photoId);
-        if(!blob){ stat.textContent="사진을 찾지 못했습니다"; ocrBtn.disabled=false; return; }
-        const no = await ocrCarNumber(blob);
-        if(no){
-          it.carNo = no;
-          if(vehicles[no]){ it.company=vehicles[no].company||it.company; it.driver=vehicles[no].driver||it.driver; }
-          await save(); renderEvening();
-        }else{
-          stat.textContent="번호를 못 찾았습니다. 직접 입력해 주세요.";
-          ocrBtn.disabled=false;
-        }
-      }catch(e){
-        stat.textContent="읽기 실패(인터넷 확인). 직접 입력해 주세요.";
-        ocrBtn.disabled=false;
-      }
-    };
-    ocrWrap.appendChild(ocrBtn); ocrWrap.appendChild(stat);
-    box.appendChild(ocrWrap);
-  }
 
   const fld = (label, key, ph, isCompany)=>{
     box.appendChild(el(`<label class="fld">${esc(label)}</label>`));
