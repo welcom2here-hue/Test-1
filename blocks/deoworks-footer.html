@@ -1,0 +1,205 @@
+<style>
+  /* 푸터 전체 컨테이너 */
+  .dw-footer {
+    background-color: {{property.bgColor}};
+    color: {{property.textColor}};
+    padding: {{property.pad.topMobile}}px {{property.pad.rightMobile}}px {{property.pad.bottomMobile}}px {{property.pad.leftMobile}}px;
+    box-sizing: border-box;
+  }
+
+  @media (min-width: 768px) {
+    .dw-footer {
+      padding: {{property.pad.topDesktop}}px {{property.pad.rightDesktop}}px {{property.pad.bottomDesktop}}px {{property.pad.leftDesktop}}px;
+    }
+  }
+
+  /* 상단: 브랜드 영역 + 연락 영역 */
+  .dw-footer-top {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  @media (min-width: 768px) {
+    .dw-footer-top {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 48px;
+    }
+  }
+
+  /* 브랜드명 */
+  .dw-brand {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: {{property.brandSize.mobile}}px;
+    line-height: 1.2;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  @media (min-width: 768px) {
+    .dw-brand {
+      font-size: {{property.brandSize.desktop}}px;
+    }
+  }
+
+  /* 브랜드 한 줄 소개 */
+  .dw-tagline {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.bodySize.mobile}}px;
+    line-height: 1.6;
+    margin: 12px 0 0 0;
+    opacity: 0.75;
+  }
+
+  @media (min-width: 768px) {
+    .dw-tagline {
+      font-size: {{property.bodySize.desktop}}px;
+    }
+  }
+
+  /* 연락처 목록 */
+  .dw-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dw-contact-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.bodySize.mobile}}px;
+    line-height: 1.5;
+  }
+
+  @media (min-width: 768px) {
+    .dw-contact-row {
+      font-size: {{property.bodySize.desktop}}px;
+    }
+  }
+
+  /* 라벨 (전화 / 이메일) */
+  .dw-label {
+    flex-shrink: 0;
+    min-width: 48px;
+    opacity: 0.55;
+  }
+
+  /* 연락처 값 링크 */
+  .dw-value {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+
+  .dw-value:hover {
+    border-bottom-color: currentColor;
+  }
+
+  /* 카카오톡 채널 버튼 */
+  .dw-kakao {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+    padding: 10px 18px;
+    background-color: {{property.accentColor}};
+    color: {{property.bgColor}};
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.bodySize.mobile}}px;
+    line-height: 1.2;
+    text-decoration: none;
+    align-self: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .dw-kakao {
+      font-size: {{property.bodySize.desktop}}px;
+    }
+  }
+
+  /* 하단: 사업자정보 + 저작권 */
+  .dw-footer-bottom {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid currentColor;
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.bodySize.mobile}}px;
+    line-height: 1.7;
+    opacity: 0.55;
+  }
+
+  @media (min-width: 768px) {
+    .dw-footer-bottom {
+      font-size: {{property.bodySize.desktop}}px;
+    }
+  }
+
+  .dw-legal {
+    margin: 0;
+    white-space: pre-line;
+  }
+
+  .dw-copyright {
+    margin: 12px 0 0 0;
+  }
+</style>
+
+<template>
+  <div class="dw-footer">
+
+    <div class="dw-footer-top">
+
+      <!-- 브랜드 영역 -->
+      <div>
+        <p class="dw-brand">{{property.brandName}}</p>
+        {{#if property.tagline}}
+          <p class="dw-tagline">{{property.tagline}}</p>
+        {{/if}}
+      </div>
+
+      <!-- 연락 영역 -->
+      <div class="dw-contact">
+
+        {{#if property.phone}}
+          <div class="dw-contact-row">
+            <span class="dw-label">전화</span>
+            <a class="dw-value" href="tel:{{property.phone}}">{{property.phone}}</a>
+          </div>
+        {{/if}}
+
+        {{#if property.email}}
+          <div class="dw-contact-row">
+            <span class="dw-label">이메일</span>
+            <a class="dw-value" href="mailto:{{property.email}}">{{property.email}}</a>
+          </div>
+        {{/if}}
+
+        {{#if property.kakaoLink.value}}
+          <a class="dw-kakao" href="{{property.kakaoLink.value}}" target="_blank" rel="noopener noreferrer">
+            {{property.kakaoButtonText}}
+          </a>
+        {{/if}}
+
+      </div>
+
+    </div>
+
+    <!-- 하단 정보 -->
+    <div class="dw-footer-bottom">
+      {{#if property.legalInfo}}
+        <p class="dw-legal">{{property.legalInfo}}</p>
+      {{/if}}
+      <p class="dw-copyright">{{property.copyright}}</p>
+    </div>
+
+  </div>
+</template>

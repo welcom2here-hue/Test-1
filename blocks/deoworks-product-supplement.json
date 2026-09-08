@@ -1,0 +1,29 @@
+{
+  "_id": "6aa00a7108e4f1b63c65b56d",
+  "title": "보조 설명",
+  "themeId": "6a97a7931b0eec7792dea057",
+  "icon": "product",
+  "status": "active",
+  "tags": ["PRODUCT"],
+  "order": 41000,
+  "sourceFile": "deoworks-product-supplement.html",
+  "note": "상품 상세 페이지 전용 보조설명 아코디언. <data value=\"$page\"> 사용. 테마 기본 성격.",
+  "availablePages": {"pages": [{"featureType": "PRODUCT_DETAIL", "pageTemplateId": ""}], "type": "include"},
+  "property": {
+    "isFirstItemExpanded": false,
+    "menus": [],
+    "product": {"id": "$page.params.productSlug"},
+    "section": {"bgColor": "#FFFFFF", "gridColor": "#EEEEEEFF", "textColor": "#000000FF"},
+    "size": {"height": "fit-content", "mobile": {"height": "fit-content"}}
+  },
+  "settings": [
+    {"content": "보조 설명", "type": "TITLE"},
+    {"content": "상품 상세 페이지에서만 동작하는 블록이에요.", "type": "DESCRIPTION"},
+    {"content": "스타일", "type": "TITLE"},
+    {"config": null, "default": "#FFFFFF", "description": "", "id": "section.bgColor", "label": "배경 색상", "type": "COLOR_PICKER"},
+    {"config": null, "default": "#292E2F", "description": "", "id": "section.textColor", "label": "글자 색상", "type": "COLOR_PICKER"},
+    {"config": null, "default": "#E8E8E8", "description": "", "id": "section.gridColor", "label": "그리드 색상", "type": "COLOR_PICKER"},
+    {"config": null, "default": false, "id": "isFirstItemExpanded", "label": "첫번째 보조 설명 펼치기", "type": "CHECKBOX"},
+    {"config": null, "id": "product", "isVisible": "false", "label": "상품", "type": "PRODUCT_DETAIL"}
+  ]
+}

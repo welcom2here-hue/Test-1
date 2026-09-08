@@ -1,0 +1,62 @@
+{
+  "_id": "6a989017e0020b1677a8c609",
+  "title": "deoworks 푸터",
+  "themeId": "6a97a7931b0eec7792dea057",
+  "icon": "websiteBottom",
+  "status": "active",
+  "tags": ["FOOTER"],
+  "order": 36000,
+  "sourceFile": "deoworks-footer.html",
+  "property": {
+    "accentColor": "#C9A227FF",
+    "bgColor": "#1A2B4CFF",
+    "bodySize": {"desktop": 15, "mobile": 14},
+    "brandName": "deoworks",
+    "brandSize": {"desktop": 32, "mobile": 24},
+    "copyright": "© 2026 deoworks. All rights reserved.",
+    "email": "deoworks@gmail.com",
+    "kakaoButtonText": "카카오톡으로 문의하기",
+    "kakaoLink": {"id": null, "label": "카카오톡 채널", "type": "url", "value": "http://pf.kakao.com/_JxjxkzX"},
+    "legalInfo": "",
+    "pad": {"bottomDesktop": 56, "bottomMobile": 40, "leftDesktop": 0, "leftMobile": 0, "rightDesktop": 0, "rightMobile": 0, "topDesktop": 72, "topMobile": 48},
+    "phone": "010-1234-1234",
+    "tagline": "밀양·창원·김해 건설·토목·제조 사업체 전용 홈페이지 제작",
+    "textColor": "#FFFFFFFF"
+  },
+  "settings": [
+    {"content": "데이터", "type": "TAB", "settings": [
+      {"content": "브랜드", "type": "TITLE"},
+      {"description": "푸터 왼쪽에 크게 표시돼요.", "id": "brandName", "label": "브랜드명", "placeholder": "예: deoworks", "type": "TEXT"},
+      {"description": "브랜드명 아래에 표시돼요. 비워두면 숨겨져요.", "id": "tagline", "label": "한 줄 소개", "placeholder": "예: 경남 소형 사업체 전용 홈페이지 제작", "type": "TEXT"},
+      {"content": "연락처", "type": "TITLE"},
+      {"description": "모바일에서 누르면 바로 전화가 걸려요. 비워두면 숨겨져요.", "id": "phone", "label": "전화번호", "placeholder": "예: 010-0000-0000", "type": "TEXT"},
+      {"description": "누르면 메일 앱이 열려요. 비워두면 숨겨져요.", "id": "email", "label": "이메일", "placeholder": "예: hello@example.com", "type": "TEXT"},
+      {"description": "카카오톡 채널 주소를 연결해요. 비워두면 버튼이 숨겨져요.", "id": "kakaoLink", "label": "카카오톡 채널 링크", "type": "LINK"},
+      {"description": "카카오톡 채널 버튼에 표시될 문구예요.", "id": "kakaoButtonText", "label": "카카오톡 버튼 문구", "placeholder": "예: 카카오톡으로 문의하기", "type": "TEXT"},
+      {"content": "하단 정보", "type": "TITLE"},
+      {"description": "상호·대표자·사업자등록번호·주소 등을 줄바꿈으로 입력해요. 비워두면 숨겨져요.", "id": "legalInfo", "label": "사업자 정보", "placeholder": "예: 상호 deoworks | 대표 홍길동", "type": "TEXTAREA"},
+      {"description": "맨 아래 한 줄로 표시돼요.", "id": "copyright", "label": "저작권 문구", "placeholder": "예: © 2026 deoworks", "type": "TEXT"}
+    ]},
+    {"content": "디자인", "type": "TAB", "settings": [
+      {"content": "색상", "type": "TITLE"},
+      {"description": "푸터 전체 배경 색상이에요.", "id": "bgColor", "label": "배경 색상", "type": "COLOR_PICKER"},
+      {"description": "푸터 안의 모든 글자 색상이에요.", "id": "textColor", "label": "글자 색상", "type": "COLOR_PICKER"},
+      {"description": "카카오톡 채널 버튼의 배경 색상이에요.", "id": "accentColor", "label": "버튼 색상", "type": "COLOR_PICKER"},
+      {"content": "글자 크기", "type": "TITLE"},
+      {"description": "데스크톱에서 브랜드명 글자 크기예요.", "id": "brandSize.desktop", "label": "브랜드명 크기 (데스크톱)", "max": 72, "min": 16, "step": 1, "type": "RANGE", "unit": "px"},
+      {"description": "모바일에서 브랜드명 글자 크기예요.", "id": "brandSize.mobile", "label": "브랜드명 크기 (모바일)", "max": 48, "min": 14, "step": 1, "type": "RANGE", "unit": "px"},
+      {"description": "데스크톱에서 연락처·하단 정보 글자 크기예요.", "id": "bodySize.desktop", "label": "본문 크기 (데스크톱)", "max": 24, "min": 10, "step": 1, "type": "RANGE", "unit": "px"},
+      {"description": "모바일에서 연락처·하단 정보 글자 크기예요.", "id": "bodySize.mobile", "label": "본문 크기 (모바일)", "max": 20, "min": 10, "step": 1, "type": "RANGE", "unit": "px"},
+      {"content": "여백 (데스크톱)", "type": "TITLE"},
+      {"description": "데스크톱 상단 여백이에요.", "id": "pad.topDesktop", "label": "위쪽 여백", "max": 200, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"description": "데스크톱 하단 여백이에요.", "id": "pad.bottomDesktop", "label": "아래쪽 여백", "max": 200, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"description": "데스크톱 좌측 여백이에요.", "id": "pad.leftDesktop", "label": "왼쪽 여백", "max": 200, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"description": "데스크톱 우측 여백이에요.", "id": "pad.rightDesktop", "label": "오른쪽 여백", "max": 200, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"content": "여백 (모바일)", "type": "TITLE"},
+      {"description": "모바일 상단 여백이에요.", "id": "pad.topMobile", "label": "위쪽 여백", "max": 160, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"description": "모바일 하단 여백이에요.", "id": "pad.bottomMobile", "label": "아래쪽 여백", "max": 160, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"description": "모바일 좌측 여백이에요.", "id": "pad.leftMobile", "label": "왼쪽 여백", "max": 160, "min": 0, "step": 4, "type": "RANGE", "unit": "px"},
+      {"description": "모바일 우측 여백이에요.", "id": "pad.rightMobile", "label": "오른쪽 여백", "max": 160, "min": 0, "step": 4, "type": "RANGE", "unit": "px"}
+    ]}
+  ]
+}

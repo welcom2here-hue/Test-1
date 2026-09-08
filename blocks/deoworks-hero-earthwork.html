@@ -1,0 +1,103 @@
+<style>
+.dw-hero{position:relative;width:100%;min-height:{{property.heightVh}}vh;overflow:hidden;background:{{property.bg}};display:flex;align-items:center;font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
+.dw-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dw-veil{position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,20,37,.86) 0%, rgba(11,20,37,.5) 46%, rgba(11,20,37,.08) 100%)}
+.dw-in{position:relative;z-index:3;max-width:1120px;margin:0 auto;padding:64px 40px;width:100%}
+.dw-eyebrow{font-weight:800;text-transform:uppercase;letter-spacing:.22em;font-size:12px;color:{{property.accent}}}
+.dw-title{color:#fff;font-weight:900;line-height:1.05;letter-spacing:-.02em;font-size:clamp(34px,6vw,64px);margin:12px 0 16px}
+.dw-sub{max-width:48ch;color:#c4cfe0;font-size:clamp(15px,1.8vw,18px);line-height:1.6;margin:0 0 26px}
+.dw-acts{display:flex;gap:12px;flex-wrap:wrap}
+.dw-btn{display:inline-flex;align-items:center;text-decoration:none;font-weight:800;font-size:15px;padding:13px 22px;border-radius:10px;border:2px solid transparent}
+.dw-btn.gold{background:{{property.accent}};color:{{property.bg}}}
+.dw-btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+@media(max-width:600px){.dw-in{padding:48px 22px}}
+</style>
+<template>
+<section class='dw-hero'>
+<canvas class='dw-canvas'></canvas>
+<div class='dw-veil'></div>
+<div class='dw-in'>
+<div class='dw-eyebrow'>{{property.eyebrow}}</div>
+<h1 class='dw-title'>{{property.titleTop}}<br>{{property.titleBottom}}</h1>
+<p class='dw-sub'>{{property.sub}}</p>
+<div class='dw-acts'>
+<a class='dw-btn gold' href='{{#if property.btn1Link.value}}{{property.btn1Link.value}}{{else}}#{{/if}}'>{{property.btn1}}</a>
+<a class='dw-btn ghost' href='{{#if property.btn2Link.value}}{{property.btn2Link.value}}{{else}}#{{/if}}'>{{property.btn2}}</a>
+</div>
+</div>
+</section>
+</template>
+<script>
+(function(){
+  var root = bm.container;
+  function init(){
+    var P = bm.context.property || {};
+    var accent = (P.accent || '#C9A227FF').slice(0,7);
+    function withA(a){ return accent + a; }
+    var cv = root.querySelector('.dw-canvas');
+    if(!cv) return;
+    var ctx = cv.getContext('2d');
+    var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    root.__dwrun = (root.__dwrun || 0) + 1;
+    var myrun = root.__dwrun;
+    if(root.__dwro){ try{ root.__dwro.disconnect(); }catch(e){} }
+    var W, H, paths, total;
+    function build(){
+      var w=W, h=H, gy=0.60*h; paths=[];
+      paths.push([[0.02*w,gy],[0.60*w,gy]]);
+      paths.push([[0.86*w,gy],[0.99*w,gy]]);
+      paths.push([[0.60*w,gy],[0.66*w,0.85*h],[0.80*w,0.85*h],[0.86*w,gy]]);
+      paths.push([[0.665*w,0.85*h],[0.665*w,0.82*h],[0.795*w,0.82*h],[0.795*w,0.85*h]]);
+      paths.push([[0.665*w,0.805*h],[0.795*w,0.805*h]]);
+      var cx=0.73*w, cy=0.775*h, r=0.03*h, circ=[];
+      for(var i=0;i <= 22;i++){ var a=i/22*Math.PI*2; circ.push([cx+Math.cos(a)*r, cy+Math.sin(a)*r]); }
+      paths.push(circ);
+      paths.push([[0.03*w,0.578*h],[0.30*w,0.578*h]]);
+      paths.push([[0.03*w,0.558*h],[0.30*w,0.558*h]]);
+      var tx=0.34*w;
+      paths.push([[tx,gy],[tx+0.18*w,gy],[tx+0.165*w,gy+0.05*h],[tx+0.015*w,gy+0.05*h],[tx,gy]]);
+      paths.push([[tx+0.02*w,gy],[tx+0.02*w,gy-0.09*h],[tx+0.12*w,gy-0.09*h],[tx+0.12*w,gy]]);
+      paths.push([[tx+0.11*w,gy-0.06*h],[tx+0.20*w,gy-0.11*h],[tx+0.27*w,gy-0.02*h],[tx+0.30*w,gy+0.06*h],[tx+0.33*w,gy+0.10*h],[tx+0.29*w,gy+0.11*h],[tx+0.27*w,gy+0.07*h]]);
+      total=0; for(var p2=0;p2 < paths.length;p2++){ var pp=paths[p2]; for(var j=1;j < pp.length;j++){ total += Math.hypot(pp[j][0]-pp[j-1][0], pp[j][1]-pp[j-1][1]); } }
+    }
+    function px(){
+      var r = cv.getBoundingClientRect(); var d = Math.min(2, window.devicePixelRatio||1);
+      cv.width = Math.max(1, r.width*d); cv.height = Math.max(1, r.height*d);
+      ctx.setTransform(d,0,0,d,0,0); W=r.width; H=r.height; build();
+    }
+    function grid(){
+      ctx.clearRect(0,0,W,H); ctx.lineWidth=1; ctx.strokeStyle=withA('16');
+      var g=26; ctx.beginPath();
+      for(var x=0;x < W;x+=g){ ctx.moveTo(x,0); ctx.lineTo(x,H); }
+      for(var y=0;y < H;y+=g){ ctx.moveTo(0,y); ctx.lineTo(W,y); }
+      ctx.stroke();
+    }
+    function draw(rev){
+      var budget=rev*total; ctx.lineWidth=2; ctx.strokeStyle=withA('F2');
+      ctx.lineJoin='round'; ctx.lineCap='round'; ctx.shadowColor=withA('88'); ctx.shadowBlur=6;
+      for(var pi=0;pi < paths.length;pi++){ var p=paths[pi]; if(budget <= 0) break;
+        ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]);
+        for(var i=1;i < p.length;i++){ var seg=Math.hypot(p[i][0]-p[i-1][0], p[i][1]-p[i-1][1]);
+          if(budget >= seg){ ctx.lineTo(p[i][0],p[i][1]); budget-=seg; }
+          else { var t=budget/seg; ctx.lineTo(p[i-1][0]+(p[i][0]-p[i-1][0])*t, p[i-1][1]+(p[i][1]-p[i-1][1])*t); budget=0; break; }
+        }
+        ctx.stroke();
+      }
+      ctx.shadowBlur=0;
+    }
+    px();
+    if(reduce){ grid(); draw(1); return; }
+    var t0=null;
+    function frame(ts){
+      if(myrun !== root.__dwrun) return;
+      if(!t0) t0=ts; var el=(ts-t0)/1000; var cyc=9; var pr=(el%cyc)/cyc;
+      var rev = pr < .72 ? pr/.72 : 1; rev = rev < 1 ? 1-Math.pow(1-rev,2) : 1;
+      grid(); draw(rev); requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    try{ root.__dwro = new ResizeObserver(function(){ px(); }); root.__dwro.observe(cv); }catch(e){}
+  }
+  init();
+  bm.onContextChange = function(){ init(); };
+})();
+</script>

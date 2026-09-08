@@ -1,0 +1,238 @@
+<data value="$page" />
+
+<template>
+  {{#if property.product.supplements}}
+  <div class="product-supplement">
+    {{#each property.product.supplements}}
+    <div class="product-supplement__item{{#if (and @first ../property.isFirstItemExpanded)}} is-active{{/if}}">
+      <button type="button" class="product-supplement__button">
+        <span class="product-supplement__title">{{title}}</span>
+        <svg
+          class="product-supplement__icon product-supplement__icon--plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M12.75 11.25V5h-1.5v6.25h-6v1.5h6V19h1.5v-6.25h6.5v-1.5h-6.5Z"
+            fill="currentColor"
+          />
+        </svg>
+        <svg
+          class="product-supplement__icon product-supplement__icon--minus"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M19 12.75H5v-1.5h14v1.5Z"
+            fill="currentColor"
+          />
+        </svg>
+      </button>
+      <div class="product-supplement__panel ck ck-content">
+        {{{description.body}}}
+      </div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+</template>
+
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .product-supplement {
+    --supplement-bg-color: {{property.section.bgColor}};
+    --supplement-text-color: {{property.section.textColor}};
+  /* grid 테마의 --color-grid-100(그리드 색상)에 대응한다. */
+    --supplement-grid-color: {{property.section.gridColor}};
+
+    width: 100%;
+    background-color: var(--supplement-bg-color);
+    color: var(--supplement-text-color);
+    border-top: 1px solid var(--supplement-grid-color);
+  }
+
+  .product-supplement__button {
+    display: flex;
+    gap: var(--spacing-text-body-xs);
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0;
+    padding: var(--spacing-base-fx-m);
+    border: 0;
+    border-bottom: 1px solid var(--supplement-grid-color);
+    background: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    line-height: var(--line-height-body);
+    letter-spacing: var(--letter-spacing-body);
+    font-size: max(calc(var(--font-size-body-2) * 1rem), 10px);
+  }
+
+  .product-supplement__item:last-child:not(.is-active) .product-supplement__button {
+    border-bottom: 0;
+  }
+
+  .product-supplement__icon {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .product-supplement__icon--minus {
+    display: none;
+  }
+
+  .product-supplement__item.is-active .product-supplement__icon--plus {
+    display: none;
+  }
+
+  .product-supplement__item.is-active .product-supplement__icon--minus {
+    display: block;
+  }
+
+  .product-supplement__panel {
+    display: none;
+    padding: var(--spacing-base-fx-m);
+  }
+
+  .product-supplement__item.is-active .product-supplement__panel {
+    display: block;
+    border-bottom: 1px solid var(--supplement-grid-color);
+    animation: fadeIn 0.9s ease;
+  }
+
+  .product-supplement__item:last-child.is-active .product-supplement__panel {
+    border-bottom: 0;
+  }
+  /* 데스크톱에서 아코디언이 섹션보다 짧을 때: 마지막 항목에도 하단 보더 표시 (스크립트가 토글) */
+  .product-supplement--border-bottom-visible .product-supplement__item:last-child:not(.is-active) .product-supplement__button {
+    border-bottom: 1px solid var(--supplement-grid-color);
+  }
+
+  .product-supplement--border-bottom-visible .product-supplement__item:last-child.is-active .product-supplement__panel {
+    border-bottom: 1px solid var(--supplement-grid-color);
+  }
+
+  .product-supplement__panel img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+</style>
+
+<script>
+  const SECTION_SELECTOR = ".section-type-ProductRequiredInfo";
+  const BORDER_VISIBLE_CLASS = "product-supplement--border-bottom-visible";
+  const MOBILE_BREAKPOINT = 768;
+  const RICH_TEXT_EDITOR_WIDTH = 754;
+
+  const adjustAccordionBorder = () => {
+    const accordion = bm.container.querySelector(".product-supplement");
+
+    if (!accordion) {
+      return;
+    }
+
+    const section = accordion.closest(SECTION_SELECTOR);
+    const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+
+    let isBorderBottomVisible = false;
+
+    if (!isMobile && section) {
+      const { bottom: supplementBottom } = accordion.getBoundingClientRect();
+      const { bottom: sectionBottom } = section.getBoundingClientRect();
+
+      isBorderBottomVisible = supplementBottom < sectionBottom - 1;
+    }
+
+    accordion.classList.toggle(BORDER_VISIBLE_CLASS, isBorderBottomVisible);
+  };
+
+  const updateFigureStyle = () => {
+    bm.container
+      .querySelectorAll(".product-supplement__panel figure")
+      .forEach((figure) => {
+        const widthStyle = figure.style.width;
+
+        if (widthStyle && widthStyle.includes("%")) {
+          figure.style.maxWidth = `${
+            (RICH_TEXT_EDITOR_WIDTH * parseFloat(widthStyle)) / 100
+          }px`;
+          return;
+        }
+
+        if (widthStyle && window.innerWidth < parseInt(widthStyle)) {
+          figure.style.maxWidth = "100%";
+          return;
+        }
+
+        if (widthStyle) {
+          figure.style.maxWidth = widthStyle;
+        }
+      });
+  };
+
+  bm.container.addEventListener(
+    "click",
+    (event) => {
+      const button = event.target.closest(".product-supplement__button");
+
+      if (!button) {
+        return;
+      }
+
+      const item = button.closest(".product-supplement__item");
+
+      if (item) {
+        item.classList.toggle("is-active");
+        adjustAccordionBorder();
+      }
+    },
+    true
+  );
+
+  adjustAccordionBorder();
+  updateFigureStyle();
+
+  const section = bm.container.closest(SECTION_SELECTOR);
+  const resizeObserver = section
+    ? new ResizeObserver(adjustAccordionBorder)
+    : null;
+
+  if (resizeObserver && section) {
+    resizeObserver.observe(section);
+  }
+
+  bm.onContextChange = () => {
+    // 상품 데이터가 비동기로 도착해 템플릿이 다시 그려지면 보더 클래스/figure 가 초기화되므로 재계산한다.
+    requestAnimationFrame(() => {
+      adjustAccordionBorder();
+      updateFigureStyle();
+    });
+  };
+
+  bm.onDestroy = () => {
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+    }
+  };
+</script>

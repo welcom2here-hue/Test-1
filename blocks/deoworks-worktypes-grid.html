@@ -1,0 +1,195 @@
+<style>
+  .dw-s2 {
+    padding: {{property.padTop}}px {{property.padRight}}px {{property.padBottom}}px {{property.padLeft}}px;
+    background-color: {{property.bgColor}};
+    box-sizing: border-box;
+  }
+
+  /* 섹션 헤드 */
+  .dw-s2-head {
+    max-width: 720px;
+    margin-bottom: {{property.headGap}}px;
+  }
+
+  .dw-s2-eyebrow {
+    font-family: var(--font-family-body);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: {{property.accentColor}};
+    margin: 0 0 10px;
+  }
+
+  .dw-s2-title {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: {{property.titleSize}}px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: {{property.titleColor}};
+    margin: 0 0 12px;
+  }
+
+  .dw-s2-desc {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.descSize}}px;
+    line-height: 1.7;
+    color: {{property.bodyColor}};
+    margin: 0;
+    white-space: pre-line;
+  }
+
+  /* 카드 그리드 */
+  .dw-s2-grid {
+    display: grid;
+    grid-template-columns: repeat({{property.columns}}, 1fr);
+    gap: {{property.cardGap}}px;
+  }
+
+  .dw-card {
+    background-color: {{property.cardBgColor}};
+    border: 1px solid {{property.borderColor}};
+    border-radius: {{property.cardRadius}}px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 이미지 / 일러스트 영역 */
+  .dw-media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background-color: {{property.mediaBgColor}};
+    overflow: hidden;
+  }
+
+  .dw-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .dw-media svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .dw-card-body { padding: {{property.cardPad}}px; }
+
+  .dw-card h3 {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: {{property.cardTitleSize}}px;
+    line-height: 1.35;
+    color: {{property.titleColor}};
+    margin: 0 0 8px;
+  }
+
+  .dw-card p {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.cardDescSize}}px;
+    line-height: 1.65;
+    color: {{property.bodyColor}};
+    margin: 0;
+  }
+
+  /* 태블릿 */
+  @media (max-width: 1024px) and (min-width: 768px) {
+    .dw-s2-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* 모바일 */
+  @media (max-width: 767px) {
+    .dw-s2 {
+      padding: {{property.padTopM}}px {{property.padRightM}}px {{property.padBottomM}}px {{property.padLeftM}}px;
+    }
+    .dw-s2-grid { grid-template-columns: repeat({{property.columnsM}}, 1fr); }
+    .dw-s2-title { font-size: {{property.titleSizeM}}px; }
+    .dw-s2-head { margin-bottom: {{property.headGapM}}px; }
+  }
+</style>
+
+<template>
+  <section class="dw-s2">
+    <div class="dw-s2-head">
+      {{#if property.eyebrow}}<p class="dw-s2-eyebrow">{{property.eyebrow}}</p>{{/if}}
+      <h2 class="dw-s2-title">{{property.title}}</h2>
+      {{#if property.desc}}<p class="dw-s2-desc">{{property.desc}}</p>{{/if}}
+    </div>
+
+    <div class="dw-s2-grid">
+      {{#each property.items}}
+        <div class="dw-card">
+          <div class="dw-media">
+            {{#if image}}
+              <img src="{{image}}" alt="{{title}}">
+            {{else}}
+              <!-- 사진 없을 때: 도면 스타일 SVG 일러스트 -->
+              {{#if (eq icon "dig")}}
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     stroke="{{../property.accentColor}}" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M0 205 H140 L175 250 H255 L290 205 H400" opacity=".35"/>
+                  <path d="M40 205 V150 H105 V205"/>
+                  <path d="M105 172 L165 140 L215 190 L245 230 L212 240 L192 212"/>
+                  <path d="M175 250 H255 V232 H175 Z"/>
+                  <circle cx="215" cy="241" r="9"/>
+                  <path d="M30 118 H160 M30 100 H160" opacity=".5"/>
+                  <path d="M300 205 V168 H360 V205" opacity=".5"/>
+                </svg>
+              {{/if}}
+              {{#if (eq icon "pave")}}
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     stroke="{{../property.accentColor}}" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M120 270 L165 90 H235 L280 270"/>
+                  <path d="M200 250 V215 M200 185 V150 M200 122 V100" stroke-width="4"/>
+                  <path d="M60 270 L140 60 M340 270 L260 60" opacity=".35"/>
+                  <path d="M150 145 H250" opacity=".3"/>
+                  <path d="M138 200 H262" opacity=".3"/>
+                </svg>
+              {{/if}}
+              {{#if (eq icon "sewer")}}
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     stroke="{{../property.accentColor}}" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M0 110 H400" opacity=".35"/>
+                  <path d="M40 165 H360 M40 235 H360"/>
+                  <ellipse cx="40" cy="200" rx="16" ry="35"/>
+                  <ellipse cx="360" cy="200" rx="16" ry="35" opacity=".5"/>
+                  <path d="M150 165 V235 M250 165 V235" opacity=".45"/>
+                  <path d="M200 110 V150 M200 250 V275" opacity=".45"/>
+                  <circle cx="200" cy="200" r="26" opacity=".5"/>
+                </svg>
+              {{/if}}
+              {{#if (eq icon "grade")}}
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     stroke="{{../property.accentColor}}" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M30 230 H370"/>
+                  <path d="M30 230 L110 175 H290 L370 230" opacity=".55"/>
+                  <path d="M70 200 H330" opacity=".3"/>
+                  <path d="M110 175 V120 H190 V175" />
+                  <path d="M215 175 V140 H290 V175" opacity=".6"/>
+                  <path d="M40 265 H170 M40 280 H120" opacity=".4"/>
+                  <path d="M300 265 H370" opacity=".4"/>
+                </svg>
+              {{/if}}
+            {{/if}}
+          </div>
+
+          <div class="dw-card-body">
+            <h3>{{title}}</h3>
+            {{#if desc}}<p>{{desc}}</p>{{/if}}
+          </div>
+        </div>
+      {{/each}}
+    </div>
+  </section>
+</template>

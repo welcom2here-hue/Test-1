@@ -1,0 +1,40 @@
+{
+  "_id": "6a9bf48e08e4f1b63c61174c",
+  "title": "데오웍스 히어로 (토목 기초공사)",
+  "themeId": "6a97a7931b0eec7792dea057",
+  "icon": "websiteBody",
+  "status": "active",
+  "tags": ["MAIN_BANNER"],
+  "order": 38000,
+  "sourceFile": "deoworks-hero-earthwork.html",
+  "note": "리바 제작. 캔버스 청사진 애니메이션(터파기·되메우기·타설·하수관로·포크레인 자동 드로잉). Home 히어로 섹션(6a97a7931b0eec7792dea07d)에 배치됨.",
+  "property": {
+    "eyebrow": "CIVIL ENGINEERING · 토목시공",
+    "titleTop": "땅을 다지고",
+    "titleBottom": "길을 잇습니다",
+    "sub": "터파기·되메우기부터 도로포장·하수관로까지 — 데오웍스는 땅 아래의 기반시설을 시공합니다.",
+    "btn1": "시공 실적 보기",
+    "btn1Link": {"id": null, "type": "", "label": "", "value": ""},
+    "btn2": "견적·상담 문의",
+    "btn2Link": {"id": null, "type": "", "label": "", "value": ""},
+    "bg": "#14233FFF",
+    "accent": "#C9A227FF",
+    "heightVh": 78
+  },
+  "settings": [
+    {"type": "TITLE", "content": "내용"},
+    {"type": "TEXT", "id": "eyebrow", "label": "상단 소제목(영문)", "placeholder": "예: CIVIL ENGINEERING"},
+    {"type": "TEXT", "id": "titleTop", "label": "큰제목 1줄", "placeholder": "예: 땅을 다지고"},
+    {"type": "TEXT", "id": "titleBottom", "label": "큰제목 2줄", "placeholder": "예: 길을 잇습니다"},
+    {"type": "TEXTAREA", "id": "sub", "label": "서브 문구", "placeholder": "한 줄 소개"},
+    {"type": "TITLE", "content": "버튼"},
+    {"type": "TEXT", "id": "btn1", "label": "버튼1 텍스트"},
+    {"type": "LINK", "id": "btn1Link", "label": "버튼1 링크"},
+    {"type": "TEXT", "id": "btn2", "label": "버튼2 텍스트"},
+    {"type": "LINK", "id": "btn2Link", "label": "버튼2 링크"},
+    {"type": "TITLE", "content": "디자인"},
+    {"type": "COLOR_PICKER", "id": "bg", "label": "배경 색"},
+    {"type": "COLOR_PICKER", "id": "accent", "label": "라인·포인트 색"},
+    {"type": "RANGE", "id": "heightVh", "label": "높이", "min": 40, "max": 100, "step": 1, "unit": "vh"}
+  ]
+}

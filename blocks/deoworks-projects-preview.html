@@ -1,0 +1,153 @@
+<style>
+  /* 섹션 컨테이너 */
+  .prj-wrap {
+    background-color: {{property.bgColor}};
+    padding: {{property.padTopD}}px {{property.padRightD}}px {{property.padBottomD}}px {{property.padLeftD}}px;
+    box-sizing: border-box;
+  }
+
+  /* 상단 헤더 영역 */
+  .prj-label {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: {{property.accentColor}};
+    margin: 0 0 12px 0;
+  }
+  .prj-heading {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: {{property.headingSizeD}}px;
+    line-height: 1.3;
+    color: {{property.headingColor}};
+    margin: 0 0 40px 0;
+  }
+
+  /* 카드 그리드 */
+  .prj-grid {
+    display: grid;
+    grid-template-columns: repeat({{property.columnsD}}, 1fr);
+    gap: {{property.gap}}px;
+  }
+  .prj-card {
+    border: 1px solid {{property.cardBorderColor}};
+    border-radius: 4px;
+    overflow: hidden;
+    background: #FFFFFF;
+  }
+
+  /* 썸네일: 16:9 고정. 사진이 없으면 도면 스타일 SVG가 대신 들어감 */
+  .prj-thumb {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    background: #F5F6F8;
+  }
+  .prj-thumb > img,
+  .prj-thumb > svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* 카드 본문 */
+  .prj-body { padding: 24px; }
+  .prj-tag {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: 12px;
+    color: {{property.accentColor}};
+    margin: 0 0 8px 0;
+  }
+  .prj-name {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: 20px;
+    line-height: 1.4;
+    color: {{property.headingColor}};
+    margin: 0 0 8px 0;
+  }
+  .prj-meta {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: 14px;
+    color: {{property.bodyColor}};
+    margin: 0;
+  }
+
+  /* 더보기 링크 */
+  .prj-more {
+    margin-top: 40px;
+    text-align: right;
+  }
+  .prj-more a {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: 16px;
+    color: {{property.headingColor}};
+    text-decoration: none;
+    border-bottom: 1px solid {{property.accentColor}};
+    padding-bottom: 2px;
+  }
+
+  /* 모바일 */
+  @media (max-width: 767px) {
+    .prj-wrap {
+      padding: {{property.padTopM}}px {{property.padRightM}}px {{property.padBottomM}}px {{property.padLeftM}}px;
+    }
+    .prj-heading {
+      font-size: {{property.headingSizeM}}px;
+      margin-bottom: 28px;
+    }
+    .prj-grid { grid-template-columns: 1fr; }
+    .prj-more { text-align: left; }
+  }
+</style>
+
+<template>
+  <div class="prj-wrap">
+    <p class="prj-label">{{property.labelText}}</p>
+    <h2 class="prj-heading">{{property.headingText}}</h2>
+
+    <div class="prj-grid">
+      {{#each property.items}}
+      <div class="prj-card">
+        <div class="prj-thumb">
+          {{#if image}}
+          <img src="{{image}}" alt="{{name}}">
+          {{else}}
+          <!-- 사진 미확보 상태의 도면 스타일 대체 이미지 -->
+          <svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="320" height="180" fill="#F5F6F8"/>
+            <g stroke="#D8DDE5" stroke-width="1">
+              <path d="M0 30 H320 M0 60 H320 M0 90 H320 M0 120 H320 M0 150 H320"/>
+              <path d="M40 0 V180 M80 0 V180 M120 0 V180 M160 0 V180 M200 0 V180 M240 0 V180 M280 0 V180"/>
+            </g>
+            <g stroke="#1A2B4C" stroke-width="2" fill="none">
+              <path d="M60 130 L120 90 L200 90 L260 130"/>
+              <path d="M60 130 H260"/>
+              <path d="M120 90 V130 M200 90 V130"/>
+            </g>
+            <circle cx="160" cy="110" r="4" fill="#C9A227"/>
+          </svg>
+          {{/if}}
+        </div>
+        <div class="prj-body">
+          <p class="prj-tag">{{tag}}</p>
+          <h3 class="prj-name">{{name}}</h3>
+          <p class="prj-meta">{{meta}}</p>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+
+    {{#if property.moreText}}
+    <div class="prj-more">
+      <a href="{{property.moreLink.value}}">{{property.moreText}}</a>
+    </div>
+    {{/if}}
+  </div>
+</template>

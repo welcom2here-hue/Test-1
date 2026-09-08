@@ -1,0 +1,177 @@
+<style>
+  /* 헤더 전체 */
+  .dw-header {
+    width: 100%;
+    background-color: {{property.bgColor}};
+    {{#if property.showBorder}}
+    border-bottom: 1px solid {{property.borderColor}};
+    {{/if}}
+  }
+
+  .dw-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: {{property.headerHeight}}px;
+    padding: {{property.padTop}}px {{property.padRight}}px {{property.padBottom}}px {{property.padLeft}}px;
+    box-sizing: border-box;
+  }
+
+  /* 로고 */
+  .dw-logo {
+    font-family: 'Work Sans', var(--font-family-heading);
+    font-weight: var(--font-weight-heading);
+    font-size: {{property.logoSize}}px;
+    letter-spacing: -0.01em;
+    color: {{property.textColor}};
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* 데스크톱 내비 */
+  .dw-nav {
+    display: flex;
+    align-items: center;
+    gap: {{property.navGap}}px;
+  }
+
+  .dw-nav a {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.navSize}}px;
+    color: {{property.textColor}};
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 4px 0;
+    transition: opacity .15s ease;
+  }
+
+  .dw-nav a:hover { opacity: .6; }
+
+  .dw-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* CTA 버튼 */
+  .dw-cta {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-family-body);
+    font-weight: 600;
+    font-size: {{property.ctaSize}}px;
+    color: {{property.ctaTextColor}};
+    background-color: {{property.ctaBgColor}};
+    padding: 10px 18px;
+    border-radius: {{property.ctaRadius}}px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* 햄버거 (모바일 전용) */
+  .dw-burger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .dw-burger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background-color: {{property.textColor}};
+  }
+
+  /* 모바일 펼침 메뉴 */
+  .dw-mobile {
+    display: none;
+    flex-direction: column;
+    padding: 8px {{property.padRightM}}px 20px {{property.padLeftM}}px;
+    border-top: 1px solid {{property.borderColor}};
+  }
+
+  .dw-mobile a {
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-body);
+    font-size: {{property.navSizeM}}px;
+    color: {{property.textColor}};
+    text-decoration: none;
+    padding: 14px 0;
+  }
+
+  .dw-mobile .dw-cta-m {
+    margin-top: 12px;
+    color: {{property.ctaTextColor}};
+    background-color: {{property.ctaBgColor}};
+    text-align: center;
+    padding: 14px 18px;
+    border-radius: {{property.ctaRadius}}px;
+    font-weight: 600;
+  }
+
+  .dw-mobile.is-open { display: flex; }
+
+  /* 모바일 브레이크포인트 */
+  @media (max-width: 767px) {
+    .dw-inner {
+      min-height: {{property.headerHeightM}}px;
+      padding: {{property.padTopM}}px {{property.padRightM}}px {{property.padBottomM}}px {{property.padLeftM}}px;
+    }
+    .dw-logo { font-size: {{property.logoSizeM}}px; }
+    .dw-nav { display: none; }
+    .dw-cta { display: none; }
+    .dw-burger { display: flex; }
+  }
+</style>
+
+<template>
+  <header class="dw-header">
+    <div class="dw-inner">
+      <a class="dw-logo" href="{{property.logoLink.value}}">{{property.logoText}}</a>
+
+      <nav class="dw-nav">
+        {{#each property.navItems}}
+          <a href="{{link.value}}">{{label}}</a>
+        {{/each}}
+      </nav>
+
+      <div class="dw-right">
+        {{#if property.ctaVisible}}
+          <a class="dw-cta" href="{{property.ctaLink.value}}">{{property.ctaLabel}}</a>
+        {{/if}}
+        <button class="dw-burger" type="button" aria-label="메뉴 열기">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="dw-mobile">
+      {{#each property.navItems}}
+        <a href="{{link.value}}">{{label}}</a>
+      {{/each}}
+      {{#if property.ctaVisible}}
+        <a class="dw-cta-m" href="{{property.ctaLink.value}}">{{property.ctaLabel}}</a>
+      {{/if}}
+    </div>
+  </header>
+</template>
+
+<script>
+  // 햄버거 토글 — 컨테이너 위임 방식이라 재렌더링 후에도 동작
+  bm.container.addEventListener('click', function (e) {
+    var burger = e.target.closest('.dw-burger');
+    if (!burger) return;
+    e.preventDefault();
+    var panel = bm.container.querySelector('.dw-mobile');
+    if (panel) panel.classList.toggle('is-open');
+  }, true);
+</script>
