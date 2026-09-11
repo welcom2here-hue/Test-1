@@ -1,0 +1,28 @@
+<style>
+.dwc{background:{{property.bg}};padding:{{property.padTop}}px 24px {{property.padBottom}}px;font-family:'Pretendard',var(--font-family-body),-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
+.dwc-in{max-width:1120px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:36px;flex-wrap:wrap}
+.dwc-txt{max-width:640px}
+.dwc-eyebrow{font-weight:800;letter-spacing:.2em;text-transform:uppercase;font-size:12px;color:{{property.textColor}};opacity:.7;margin:0 0 12px}
+.dwc-h{color:{{property.textColor}};font-size:clamp(26px,4.2vw,42px);font-weight:900;line-height:1.2;letter-spacing:-.02em;margin:0 0 12px}
+.dwc-p{color:{{property.subColor}};font-size:clamp(15px,1.8vw,18px);line-height:1.6;margin:0;font-weight:600}
+.dwc-acts{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.dwc-kk{display:inline-flex;align-items:center;gap:10px;background:{{property.btnBg}};color:{{property.btnText}};font-weight:800;font-size:17px;padding:18px 30px;border-radius:12px;text-decoration:none;white-space:nowrap}
+.dwc-tel{color:{{property.textColor}};font-weight:700;font-size:15px;text-decoration:none;opacity:.9}
+.dwc-tel b{font-size:17px}
+@media(max-width:760px){.dwc-in{flex-direction:column;align-items:flex-start}.dwc-acts{align-self:stretch}.dwc-kk{width:100%;justify-content:center}}
+</style>
+<template>
+<section class='dwc'>
+<div class='dwc-in'>
+<div class='dwc-txt'>
+{{#if property.eyebrow}}<p class='dwc-eyebrow'>{{property.eyebrow}}</p>{{/if}}
+<h2 class='dwc-h'>{{property.title}}</h2>
+{{#if property.sub}}<p class='dwc-p'>{{property.sub}}</p>{{/if}}
+</div>
+<div class='dwc-acts'>
+{{#if property.ctaText}}<a class='dwc-kk' href='{{#if property.ctaLink.value}}{{property.ctaLink.value}}{{else}}#{{/if}}' target='_blank' rel='noopener noreferrer'>{{property.ctaText}}</a>{{/if}}
+{{#if property.phone}}<a class='dwc-tel' href='tel:{{property.phone}}'>전화 문의 <b>{{property.phone}}</b>{{#if property.telNote}} · {{property.telNote}}{{/if}}</a>{{/if}}
+</div>
+</div>
+</section>
+</template>

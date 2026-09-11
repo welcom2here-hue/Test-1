@@ -1,0 +1,42 @@
+{
+  "_id": "6aa3edbb867c20654ec2d4c2",
+  "title": "deoworks 문의 CTA 배너",
+  "themeId": "6a97a7931b0eec7792dea057",
+  "icon": "websiteBody",
+  "status": "active",
+  "tags": ["INFORMATION"],
+  "order": 48000,
+  "sourceFile": "deoworks-cta.html",
+  "note": "홈 마무리 CTA 배너. 밝은 단색 골드 #FFCE3A + 남색 텍스트/버튼. 카톡+전화 문의. Home 신뢰지표 다음 새 섹션(6aa3edc2578ea95cbd2a36a7)에 배치, 인스턴스 6aa3edc70879cc151818ad51. 전화번호는 예시값.",
+  "property": {
+    "eyebrow": "GET A QUOTE",
+    "title": "지금 현장, 견적부터 받아보세요",
+    "sub": "밀양·창원·김해는 당일 현장확인. 현장 사진 몇 장만 보내주시면 개략 견적을 빠르게 드립니다.",
+    "ctaText": "💬 카카오톡으로 문의하기 →",
+    "ctaLink": {"id": null, "type": "url", "label": "카카오톡 문의", "value": "http://pf.kakao.com/_JxjxkzX"},
+    "phone": "010-1234-1234",
+    "telNote": "평일 09–18시",
+    "bg": "#FFCE3AFF", "textColor": "#14233FFF", "subColor": "#233251FF",
+    "btnBg": "#14233FFF", "btnText": "#FFFFFFFF", "padTop": 72, "padBottom": 72
+  },
+  "settings": [
+    {"type": "TITLE", "content": "내용"},
+    {"type": "TEXT", "id": "eyebrow", "label": "상단 소제목(영문)", "placeholder": "예: GET A QUOTE"},
+    {"type": "TEXT", "id": "title", "label": "제목", "placeholder": "예: 지금 현장, 견적부터 받아보세요"},
+    {"type": "TEXTAREA", "id": "sub", "label": "설명 문구"},
+    {"type": "TITLE", "content": "문의 버튼"},
+    {"type": "TEXT", "id": "ctaText", "label": "버튼 문구"},
+    {"type": "LINK", "id": "ctaLink", "label": "버튼 링크(카톡 채널)"},
+    {"type": "TITLE", "content": "전화"},
+    {"type": "TEXT", "id": "phone", "label": "전화번호", "placeholder": "예: 010-0000-0000"},
+    {"type": "TEXT", "id": "telNote", "label": "전화 안내(선택)", "placeholder": "예: 평일 09–18시"},
+    {"type": "TITLE", "content": "디자인"},
+    {"type": "COLOR_PICKER", "id": "bg", "label": "배경 색"},
+    {"type": "COLOR_PICKER", "id": "textColor", "label": "제목 글자색"},
+    {"type": "COLOR_PICKER", "id": "subColor", "label": "본문 글자색"},
+    {"type": "COLOR_PICKER", "id": "btnBg", "label": "버튼 배경"},
+    {"type": "COLOR_PICKER", "id": "btnText", "label": "버튼 글자색"},
+    {"type": "RANGE", "id": "padTop", "label": "위 여백", "min": 40, "max": 160, "step": 4, "unit": "px"},
+    {"type": "RANGE", "id": "padBottom", "label": "아래 여백", "min": 40, "max": 160, "step": 4, "unit": "px"}
+  ]
+}

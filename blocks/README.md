@@ -19,6 +19,8 @@
 | `deoworks-projects-preview` | deoworks 홈 3 - 시공 실적 프리뷰 | 6aa0763908e4f1b63c65d381 | GALLERY, INFORMATION |
 | `deoworks-product-supplement` | 보조 설명 (상품상세 전용) | 6aa00a7108e4f1b63c65b56d | PRODUCT |
 | `deoworks-process` | deoworks 진행 과정 (PROCESS) — 홈 4단계 | 6aa3e6bf867c20654ec2ce82 | INFORMATION |
+| `deoworks-whyus` | deoworks 신뢰지표 (WHY US) — 홈 | 6aa3eb65867c20654ec2d2db | INFORMATION |
+| `deoworks-cta` | deoworks 문의 CTA 배너 — 홈 마무리 | 6aa3edbb867c20654ec2d4c2 | INFORMATION |
 | `deoworks-footer` | deoworks 푸터 | 6a989017e0020b1677a8c609 | FOOTER |
 
 > 참고: 요청은 "3개"였지만 실제 테마에는 7개 블록이 있어 전부 백업했습니다.
