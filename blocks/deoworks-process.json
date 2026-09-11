@@ -7,7 +7,7 @@
   "tags": ["INFORMATION"],
   "order": 46000,
   "sourceFile": "deoworks-process.html",
-  "note": "홈 진행과정 4단계. 2번 섹션(공사종류 그리드)과 동일한 그리드·여백·폰트(var(--font-family-*))·도면 SVG 규칙. 사진 미확보라 {{#if image}} 없으면 도면 SVG(survey/estimate/build/complete). 단계는 items LIST로 교체 가능. Home 진행과정 섹션(6aa3e6d70f160f18524a16ef), 인스턴스 6aa47cf20f160f18524c3cf0.",
+  "note": "진행과정 4단계. 2번 섹션(공사종류 그리드)과 동일한 그리드·여백·폰트(var(--font-family-*))·도면 SVG 규칙. 사진 미확보라 {{#if image}} 없으면 도면 SVG(survey/estimate/build/complete). 단계는 items LIST로 교체 가능. 배치: (1) Home 진행과정 섹션 6aa3e6d70f160f18524a16ef, 인스턴스 6aa47cf20f160f18524c3cf0 / (2) PROCESS 전용 페이지 6a97a7931b0eec7792dea060, 섹션 6aa481ed0f160f18524c4a8f, 인스턴스 6aa481f26609437eaf89943c.",
   "property": {
     "accentColor": "#C9A227FF",
     "bgColor": "#FFFFFFFF",
