@@ -1,0 +1,53 @@
+<style>
+.dwp{background:{{property.bg}};padding:{{property.padTop}}px 24px {{property.padBottom}}px;font-family:'Pretendard',var(--font-family-body),-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
+.dwp-in{max-width:1120px;margin:0 auto}
+.dwp-head{max-width:720px;margin-bottom:52px}
+.dwp-eyebrow{font-weight:800;letter-spacing:.24em;text-transform:uppercase;font-size:12px;color:{{property.accent}};margin:0 0 12px}
+.dwp-title{color:{{property.textColor}};font-size:clamp(26px,4vw,40px);font-weight:800;line-height:1.25;letter-spacing:-.02em;margin:0 0 14px}
+.dwp-sub{color:{{property.subColor}};font-size:clamp(15px,1.7vw,17px);line-height:1.7;margin:0}
+.dwp-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.dwp-step{position:relative;padding:0 22px}
+.dwp-step:not(:first-child)::before{content:'';position:absolute;left:0;top:34px;width:1px;height:calc(100% - 34px);background:rgba(201,162,39,.25)}
+.dwp-num{font-size:15px;font-weight:800;color:{{property.accent}};letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.dwp-ic{width:46px;height:46px;margin:18px 0 16px}
+.dwp-ic svg{width:46px;height:46px;stroke:{{property.accent}};fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dwp-step h3{color:{{property.textColor}};font-size:19px;font-weight:800;margin:0 0 8px;letter-spacing:-.01em}
+.dwp-step p{color:{{property.subColor}};font-size:14.5px;line-height:1.65;margin:0}
+.dwp-arrow{position:absolute;right:-9px;top:26px;color:{{property.accent}};opacity:.7;font-size:18px}
+.dwp-cta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:56px;border-top:1px solid rgba(255,255,255,.12);padding-top:32px}
+.dwp-cta .dwp-msg{color:{{property.textColor}};font-size:17px;font-weight:600}
+.dwp-kk{display:inline-flex;align-items:center;gap:8px;background:{{property.accent}};color:{{property.bg}};font-weight:800;font-size:15px;padding:14px 24px;border-radius:10px;text-decoration:none}
+@media(max-width:820px){.dwp-steps{grid-template-columns:1fr 1fr;gap:36px 0}.dwp-step{padding:0 18px}.dwp-step:not(:first-child)::before{display:none}.dwp-arrow{display:none}}
+@media(max-width:480px){.dwp-steps{grid-template-columns:1fr}.dwp{padding:60px 20px}}
+</style>
+<template>
+<section class='dwp'>
+<div class='dwp-in'>
+<div class='dwp-head'>
+{{#if property.eyebrow}}<p class='dwp-eyebrow'>{{property.eyebrow}}</p>{{/if}}
+<h2 class='dwp-title'>{{property.title}}</h2>
+{{#if property.sub}}<p class='dwp-sub'>{{property.sub}}</p>{{/if}}
+</div>
+<div class='dwp-steps'>
+{{#each property.steps}}
+<div class='dwp-step'>
+<div class='dwp-num'>STEP 0{{add @index 1}}</div>
+<div class='dwp-ic'>
+{{#if (eq icon 'chat')}}<svg viewBox='0 0 48 48'><path d='M8 12h32v22H22l-8 7v-7H8z'/><path d='M16 21h16M16 27h10'/></svg>{{/if}}
+{{#if (eq icon 'site')}}<svg viewBox='0 0 48 48'><path d='M6 38h36'/><path d='M12 38V22h9v16'/><path d='M27 38V16h9v22'/><circle cx='33' cy='12' r='5'/><path d='M37 16l4 4'/></svg>{{/if}}
+{{#if (eq icon 'build')}}<svg viewBox='0 0 48 48'><path d='M6 40h30'/><path d='M10 40v-8h10v8'/><path d='M20 33l10-5 8 6-3 6H30'/><circle cx='30' cy='40' r='4'/></svg>{{/if}}
+{{#if (eq icon 'done')}}<svg viewBox='0 0 48 48'><path d='M10 42V8l22 6-22 6'/><path d='M30 30l6 6 10-12'/></svg>{{/if}}
+</div>
+{{#unless @last}}<div class='dwp-arrow'>&#8594;</div>{{/unless}}
+<h3>{{title}}</h3>
+{{#if desc}}<p>{{desc}}</p>{{/if}}
+</div>
+{{/each}}
+</div>
+<div class='dwp-cta'>
+{{#if property.ctaMsg}}<span class='dwp-msg'>{{property.ctaMsg}}</span>{{/if}}
+{{#if property.ctaText}}<a class='dwp-kk' href='{{#if property.ctaLink.value}}{{property.ctaLink.value}}{{else}}#{{/if}}' target='_blank' rel='noopener noreferrer'>{{property.ctaText}}</a>{{/if}}
+</div>
+</div>
+</section>
+</template>

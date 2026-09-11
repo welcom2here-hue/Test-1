@@ -1,0 +1,54 @@
+{
+  "_id": "6aa3e6bf867c20654ec2ce82",
+  "title": "deoworks 진행 과정 (PROCESS)",
+  "themeId": "6a97a7931b0eec7792dea057",
+  "icon": "websiteBody",
+  "status": "active",
+  "tags": ["INFORMATION"],
+  "order": 46000,
+  "sourceFile": "deoworks-process.html",
+  "note": "홈 진행과정 4단계 섹션. 남색/골드/Pretendard. 카톡 문의 CTA. Home 실적 프리뷰 다음 새 섹션(6aa3e6d70f160f18524a16ef)에 배치, 인스턴스 6aa3e6deb950fcb262f66a8f.",
+  "property": {
+    "eyebrow": "PROCESS",
+    "title": "맡기시면, 순서대로 진행됩니다",
+    "sub": "문의 한 번이면 현장 확인부터 준공·사후관리까지 — 담당자 한 명이 끝까지 챙깁니다. 밀양·창원·김해 현장은 당일 확인이 가능합니다.",
+    "steps": [
+      {"title": "상담 접수", "desc": "카톡으로 현장 위치와 공사 내용만 남겨주세요. 24시간 안에 담당자가 연락드립니다.", "icon": "chat"},
+      {"title": "현장 확인·견적", "desc": "직접 방문해 현장을 확인하고, 숨은 비용 없는 내역 견적을 드립니다.", "icon": "site"},
+      {"title": "시공·진행 공유", "desc": "공정표대로 시공하며, 현장 사진으로 진행 상황을 그때그때 공유합니다.", "icon": "build"},
+      {"title": "준공·사후관리", "desc": "준공검사를 마치고, 하자보수 기간까지 책임지고 관리합니다.", "icon": "done"}
+    ],
+    "ctaMsg": "현장 보고 견적부터 받아보시겠어요?",
+    "ctaText": "💬 카카오톡으로 문의하기 →",
+    "ctaLink": {"id": null, "type": "url", "label": "카카오톡 문의", "value": "http://pf.kakao.com/_JxjxkzX"},
+    "bg": "#1A2B4CFF",
+    "accent": "#C9A227FF",
+    "textColor": "#FFFFFFFF",
+    "subColor": "#C4CFE0FF",
+    "padTop": 88,
+    "padBottom": 88
+  },
+  "settings": [
+    {"type": "TITLE", "content": "내용"},
+    {"type": "TEXT", "id": "eyebrow", "label": "상단 소제목(영문)", "placeholder": "예: PROCESS"},
+    {"type": "TEXT", "id": "title", "label": "제목", "placeholder": "예: 맡기시면, 순서대로 진행됩니다"},
+    {"type": "TEXTAREA", "id": "sub", "label": "설명 문구", "placeholder": "한~두 줄 소개"},
+    {"type": "TITLE", "content": "단계 (순서대로)"},
+    {"type": "LIST", "id": "steps", "label": "단계 목록", "maxCount": 6, "settings": [
+      {"type": "TEXT", "id": "title", "label": "단계 이름", "placeholder": "예: 상담 접수"},
+      {"type": "TEXTAREA", "id": "desc", "label": "단계 설명", "placeholder": "짧게 적어주세요"},
+      {"type": "SELECT", "id": "icon", "label": "아이콘", "options": [{"label": "상담(말풍선)", "value": "chat"}, {"label": "현장확인", "value": "site"}, {"label": "시공(장비)", "value": "build"}, {"label": "준공(깃발)", "value": "done"}]}
+    ]},
+    {"type": "TITLE", "content": "하단 문의"},
+    {"type": "TEXT", "id": "ctaMsg", "label": "문의 유도 문구"},
+    {"type": "TEXT", "id": "ctaText", "label": "버튼 문구"},
+    {"type": "LINK", "id": "ctaLink", "label": "버튼 링크(카톡 채널)"},
+    {"type": "TITLE", "content": "디자인"},
+    {"type": "COLOR_PICKER", "id": "bg", "label": "배경 색"},
+    {"type": "COLOR_PICKER", "id": "accent", "label": "포인트 색"},
+    {"type": "COLOR_PICKER", "id": "textColor", "label": "제목 글자색"},
+    {"type": "COLOR_PICKER", "id": "subColor", "label": "본문 글자색"},
+    {"type": "RANGE", "id": "padTop", "label": "위 여백", "min": 40, "max": 160, "step": 4, "unit": "px"},
+    {"type": "RANGE", "id": "padBottom", "label": "아래 여백", "min": 40, "max": 160, "step": 4, "unit": "px"}
+  ]
+}
